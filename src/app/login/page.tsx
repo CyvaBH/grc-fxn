@@ -2,25 +2,68 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ShieldCheck, ArrowRight, Mail } from "lucide-react"
+import { ShieldCheck, ArrowRight, Mail, Loader2 } from "lucide-react"
+import { authClient } from "@/lib/auth-client"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email) setOtpSent(true)
+    setLoading(true)
+    setError("")
+
+    try {
+      const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
+        email,
+        type: "sign-in",
+      })
+
+      if (otpError) {
+        setError(otpError.message || "Failed to send code. Try again.")
+        setLoading(false)
+        return
+      }
+
+      setOtpSent(true)
+    } catch {
+      setError("Something went wrong. Try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (otp) {
-      window.location.href = "/dashboard"
+    setLoading(true)
+    setError("")
+
+    try {
+      const { error: signInError } = await authClient.signIn.emailOtp({
+        email,
+        otp,
+      })
+
+      if (signInError) {
+        setError(signInError.message || "Invalid code. Try again.")
+        setLoading(false)
+        return
+      }
+
+      router.push("/dashboard")
+    } catch {
+      setError("Something went wrong. Try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -29,7 +72,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <Link href="/" className="flex items-center gap-2 justify-center mb-8">
           <ShieldCheck className="h-6 w-6 text-brand-teal" />
-          <span className="text-lg font-bold text-brand-navy">[Product]</span>
+          <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
         </Link>
 
         <div className="bg-white rounded-xl border border-border shadow-sm p-8">
@@ -39,6 +82,12 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mb-6">
             Sign in to your compliance dashboard.
           </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-status-critBg rounded-lg text-sm text-status-critTx">
+              {error}
+            </div>
+          )}
 
           {!otpSent ? (
             <form onSubmit={handleSendOtp} className="space-y-4">
@@ -53,9 +102,13 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" size="lg">
-                Send verification code
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  "Send verification code"
+                )}
+                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </form>
           ) : (
@@ -78,13 +131,17 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" size="lg">
-                Sign in
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
+                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
               <button
                 type="button"
-                onClick={() => setOtpSent(false)}
+                onClick={() => { setOtpSent(false); setOtp(""); setError("") }}
                 className="w-full text-sm text-gray-500 hover:text-brand-navy"
               >
                 Use a different email

@@ -20,7 +20,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-7 w-7 text-brand-teal" />
-            <span className="text-lg font-bold text-brand-navy">[Product]</span>
+            <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -300,7 +300,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand-teal" />
             <span className="text-sm font-semibold text-brand-navy">
-              [Product]
+              Cyber Trust Nest
             </span>
           </div>
           <p className="text-xs text-gray-400 text-center">

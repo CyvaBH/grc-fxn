@@ -30,7 +30,7 @@ export function Sidebar() {
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r border-border bg-white">
       <div className="flex items-center gap-2 px-6 py-5 border-b border-border">
         <ShieldCheck className="h-7 w-7 text-brand-teal" />
-        <span className="text-lg font-bold text-brand-navy">[Product]</span>
+        <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => {

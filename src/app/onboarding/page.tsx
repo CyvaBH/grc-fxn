@@ -110,7 +110,7 @@ export default function OnboardingPage() {
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-6 w-6 text-brand-teal" />
-            <span className="text-lg font-bold text-brand-navy">[Product]</span>
+            <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
           </div>
           <span className="text-sm text-gray-500">
             Step {step + 1} of {totalSteps}

@@ -19,7 +19,7 @@ const ibmPlex = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "[Product] — Virtual GRC Officer",
+  title: "Cyber Trust Nest — Virtual GRC Officer",
   description:
     "Know what compliance applies to your business. Get your personalized action plan, policies, and deadline reminders in 15 minutes.",
 };
