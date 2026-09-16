@@ -1,69 +1,322 @@
-import Image from "next/image";
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  ShieldCheck,
+  FileCheck,
+  CalendarClock,
+  GraduationCap,
+  ArrowRight,
+  CheckCircle2,
+  Zap,
+  Lock,
+  BookOpen,
+} from "lucide-react"
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="min-h-screen bg-white">
+      {/* Nav */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-7 w-7 text-brand-teal" />
+            <span className="text-lg font-bold text-brand-navy">[Product]</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/login">
+              <Button variant="ghost" size="sm">
+                Log in
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button size="sm">Get started free</Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 bg-status-infoBg text-brand-navy rounded-full px-4 py-1.5 text-sm font-medium mb-6">
+            <Zap className="h-4 w-4 text-brand-teal" />
+            Built for Nigerian SMBs
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-brand-navy leading-tight tracking-tight">
+            Know exactly what compliance{" "}
+            <span className="text-brand-teal">applies to your business</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-6 text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
+            Answer 15 minutes of questions. Get your NDPA + industry action plan,
+            policies, and deadline reminders — without hiring a GRC team.
           </p>
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/signup">
+              <Button size="xl" className="w-full sm:w-auto">
+                Get my Compliance Profile
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <p className="text-sm text-gray-400">
+              Free profile • No credit card required
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* How it works */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-brand-mist">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-brand-navy text-center mb-12">
+            How it works
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                step: "1",
+                title: "Tell us about your business",
+                desc: "Industry, size, data you handle, tech you use — takes 5 minutes.",
+                icon: FileCheck,
+              },
+              {
+                step: "2",
+                title: "Answer tailored questions",
+                desc: "Smart branching means you only see what matters to you.",
+                icon: BookOpen,
+              },
+              {
+                step: "3",
+                title: "Get your action plan",
+                desc: "Which regulations apply, policies to adopt, deadlines to track.",
+                icon: CalendarClock,
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="bg-white rounded-xl p-8 border border-border shadow-sm text-center"
+              >
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-brand-teal/10 text-brand-teal font-bold text-lg mb-4">
+                  {item.step}
+                </div>
+                <h3 className="text-lg font-semibold text-brand-navy mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* What you get */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-brand-navy text-center mb-4">
+            Everything you need to stay compliant
+          </h2>
+          <p className="text-gray-500 text-center mb-12 max-w-xl mx-auto">
+            Not just a report — a living system that keeps you ready.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: ShieldCheck,
+                title: "Compliance Profile",
+                desc: "Know which regulations, frameworks, and certifications apply to you — with citations.",
+              },
+              {
+                icon: FileCheck,
+                title: "Policy Templates",
+                desc: "15 ready-to-customize templates: data protection, access control, incident response, and more.",
+              },
+              {
+                icon: CalendarClock,
+                title: "Deadline Tracker",
+                desc: "Never miss an audit filing, certification renewal, or compliance deadline again.",
+              },
+              {
+                icon: GraduationCap,
+                title: "Staff Training",
+                desc: "Phishing awareness, security basics, and role-based training modules.",
+              },
+              {
+                icon: Lock,
+                title: "Trust Center",
+                desc: "Shareable page that proves your compliance to clients and auditors.",
+              },
+              {
+                icon: CheckCircle2,
+                title: "Readiness Score",
+                desc: "Track your compliance progress with a clear 0-100 score that improves over time.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="p-6 rounded-xl border border-border hover:border-brand-teal/30 hover:shadow-md transition-all"
+              >
+                <item.icon className="h-8 w-8 text-brand-teal mb-3" />
+                <h3 className="font-semibold text-brand-navy mb-1">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-brand-mist">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-brand-navy mb-4">
+            Simple, transparent pricing
+          </h2>
+          <p className="text-gray-500 mb-12">
+            Start free. Upgrade when you&apos;re ready.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="bg-white rounded-xl p-8 border border-border shadow-sm text-left">
+              <h3 className="text-lg font-semibold text-brand-navy">Free</h3>
+              <p className="text-3xl font-bold text-brand-navy mt-2">
+                ₦0
+                <span className="text-sm font-normal text-gray-500">
+                  {" "}
+                  /month
+                </span>
+              </p>
+              <ul className="mt-6 space-y-3 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  1 compliance profile
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  3 deadline reminders
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Monthly newsletter
+                </li>
+              </ul>
+              <Link href="/signup" className="mt-8 block">
+                <Button variant="outline" className="w-full">
+                  Get started
+                </Button>
+              </Link>
+            </div>
+            <div className="bg-white rounded-xl p-8 border-2 border-brand-teal shadow-md text-left relative">
+              <div className="absolute -top-3 left-6 bg-brand-teal text-white text-xs font-bold px-3 py-1 rounded-full">
+                RECOMMENDED
+              </div>
+              <h3 className="text-lg font-semibold text-brand-navy">Pro</h3>
+              <p className="text-3xl font-bold text-brand-navy mt-2">
+                ₦35,000
+                <span className="text-sm font-normal text-gray-500">
+                  {" "}
+                  /month
+                </span>
+              </p>
+              <ul className="mt-6 space-y-3 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Unlimited profiles
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Full policy library
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Deadline tracker + reminders
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Staff training modules
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  Trust Center
+                </li>
+              </ul>
+              <Link href="/signup" className="mt-8 block">
+                <Button className="w-full">
+                  Start 14-day trial
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold text-brand-navy text-center mb-12">
+            Frequently asked questions
+          </h2>
+          <div className="space-y-6">
+            {[
+              {
+                q: "Is this legal advice?",
+                a: "No. We provide guidance based on published regulations and frameworks. Every recommendation includes citations to the original source. Always have a licensed counsel or DPCO review before filing.",
+              },
+              {
+                q: "Which regulations do you cover?",
+                a: "We start with Nigeria's NDPA 2023, NDPC guidance, and sector-specific rules (CBN, NCC). We're expanding to Ghana, Kenya, South Africa, and UK/EU GDPR.",
+              },
+              {
+                q: "How long does it take to get my profile?",
+                a: "About 15 minutes. Answer questions about your business, and we generate your personalized compliance profile instantly.",
+              },
+              {
+                q: "Can I share my compliance status with clients?",
+                a: "Yes. Pro users get a Trust Center — a shareable page showing your Readiness Score, policies, and certifications.",
+              },
+            ].map((item) => (
+              <div
+                key={item.q}
+                className="p-6 rounded-xl border border-border"
+              >
+                <h3 className="font-semibold text-brand-navy mb-2">
+                  {item.q}
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {item.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-brand-teal" />
+            <span className="text-sm font-semibold text-brand-navy">
+              [Product]
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 text-center">
+            Guidance only — not legal advice. Confirm with licensed counsel
+            before filing.
+          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <Link href="/privacy" className="hover:text-brand-navy">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-brand-navy">
+              Terms
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
-  );
+  )
 }

@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# [Product] — Virtual GRC Function Awareness Officer
+
+> Know what compliance applies to your business. Get your personalized action plan, policies, and deadline reminders in 15 minutes.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** Next.js 16 (App Router)
+- **Styling:** Tailwind CSS + shadcn/ui components
+- **Language:** TypeScript
+- **Deployment:** Vercel
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── (auth)/           # Auth pages (login, signup)
+│   ├── (dashboard)/      # App shell (dashboard, profile, policies, etc.)
+│   ├── onboarding/       # Profiler questionnaire
+│   └── page.tsx          # Landing page
+├── components/
+│   ├── ui/               # Reusable UI components
+│   └── layout/           # Sidebar, TopBar, MobileNav
+├── lib/
+│   └── utils.ts          # cn() helper
+content/
+└── regulations/          # Regulation library (Markdown)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Design System
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See `DESIGN_SYSTEM.md` in the project root for tokens, components, and patterns.
 
-## Deploy on Vercel
+## Companion Docs
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `BUILD_PLAN.md` — Architecture, phased plan, metrics
+- `PRD.md` — Requirements, personas, user journeys
+- `BRAND.md` — Voice, messaging, visual identity
+- `DESIGN_SYSTEM.md` — Tokens, components, layouts
+- `SELF_IMPROVING_AGENT.md` — AI agent spec
+- `DECISIONS.md` — Cross-cutting decisions log
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+Push to GitHub → connect to Vercel → auto-deploy on main.
+
+```bash
+git add .
+git commit -m "Initial commit: MVP scaffold"
+git push origin main
+```
