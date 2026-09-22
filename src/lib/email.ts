@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer"
 import { Resend } from "resend"
 
 let resend: Resend | null = null
@@ -7,6 +8,23 @@ export function getResend() {
     resend = new Resend(process.env.RESEND_API_KEY)
   }
   return resend
+}
+
+let transporter: ReturnType<typeof nodemailer.createTransport> | null = null
+
+function getGmailTransporter() {
+  const user = process.env.GMAIL_USER
+  const pass = process.env.GMAIL_APP_PASSWORD
+  if (!user || !pass) return null
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+    })
+  }
+  return transporter
 }
 
 interface SendOTPEmailParams {
@@ -22,11 +40,9 @@ const typeLabels = {
   "change-email": "Change your email",
 }
 
-export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
-  const subject = `Your Cyber Trust Nest verification code`
+export function buildOTPHtml(otp: string, type: SendOTPEmailParams["type"]): string {
   const label = typeLabels[type]
-
-  const html = `
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -53,7 +69,7 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
                 <p style="margin:0;color:#0F2A44;font-size:32px;font-weight:700;letter-spacing:8px;font-family:'IBM Plex Mono',monospace;">${otp}</p>
               </div>
               <p style="margin:0 0 8px;color:#5B6B7F;font-size:13px;line-height:1.5;">
-                This code expires in 5 minutes. If you didn't request this, you can safely ignore this email.
+                This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.
               </p>
             </td>
           </tr>
@@ -71,35 +87,66 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
 </body>
 </html>
   `
+}
 
+async function sendViaGmail(to: string, subject: string, html: string) {
+  const smtp = getGmailTransporter()
+  if (!smtp) throw new Error("Gmail is not configured (missing GMAIL_USER / GMAIL_APP_PASSWORD)")
+  await smtp.sendMail({
+    from: `"Cyber Trust Nest" <${process.env.GMAIL_USER}>`,
+    to,
+    subject,
+    html,
+  })
+}
+
+async function sendViaResend(to: string, subject: string, html: string) {
   // NOTE: Resend free-tier sender (onboarding@resend.dev) only delivers
   // to the Resend account owner's inbox. To email ANY address, verify a
   // domain at resend.com/domains and set FROM_EMAIL env var, e.g.
   // FROM_EMAIL="Cyber Trust Nest <noreply@yourdomain.com>"
   const from = process.env.FROM_EMAIL || "Cyber Trust Nest <onboarding@resend.dev>"
-
-  try {
-    const { error } = await getResend().emails.send({
-      from,
-      to: email,
-      subject,
-      html,
-    })
-    if (error) {
-      console.error(`[AUTH] Resend rejected OTP to ${email}:`, error)
-      throw new Error(
-        `Email provider rejected the send (${error.message || "unknown reason"}). ` +
-        `If testing with onboarding@resend.dev, codes only arrive at the Resend account owner's inbox — verify a domain to email anyone.`
-      )
-    }
-    console.log(`[AUTH] OTP sent to ${email} (type: ${type})`)
-  } catch (error) {
-    // In development, log the OTP so you can test without Resend
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[AUTH] DEV MODE — OTP for ${email}: ${otp}`)
-    }
-    // Re-throw so Better Auth returns the failure to the client
-    // instead of silently pretending the code was sent.
-    throw error instanceof Error ? error : new Error("Failed to send email")
+  const { error } = await getResend().emails.send({ from, to, subject, html })
+  if (error) {
+    throw new Error(
+      `Email provider rejected the send (${error.message || "unknown reason"}). ` +
+      `If testing with onboarding@resend.dev, codes only arrive at the Resend account owner's inbox — verify a domain to email anyone.`
+    )
   }
+}
+
+export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
+  const subject = `Your Cyber Trust Nest verification code`
+  const html = buildOTPHtml(otp, type)
+
+  // Gmail SMTP first (delivers to ANY inbox), Resend as fallback.
+  const errors: string[] = []
+  if (getGmailTransporter()) {
+    try {
+      await sendViaGmail(email, subject, html)
+      console.log(`[AUTH] OTP sent to ${email} via Gmail (type: ${type})`)
+      return
+    } catch (error) {
+      const msg = (error as Error).message
+      console.error(`[AUTH] Gmail send to ${email} failed:`, msg)
+      errors.push(`Gmail: ${msg}`)
+    }
+  }
+  try {
+    await sendViaResend(email, subject, html)
+    console.log(`[AUTH] OTP sent to ${email} via Resend (type: ${type})`)
+    return
+  } catch (error) {
+    const msg = (error as Error).message
+    console.error(`[AUTH] Resend send to ${email} failed:`, msg)
+    errors.push(`Resend: ${msg}`)
+  }
+
+  // In development, log the OTP so you can test without email
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[AUTH] DEV MODE — OTP for ${email}: ${otp}`)
+  }
+  // Re-throw so Better Auth returns the failure to the client
+  // instead of silently pretending the code was sent.
+  throw new Error(errors.join(" | ") || "Failed to send email")
 }
