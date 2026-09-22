@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+import Link from "next/link"
 import { ReadinessScore } from "@/components/ui/readiness-score"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,9 +15,10 @@ import {
   ExternalLink,
   Download,
   ShieldCheck,
-  BookOpen,
-  AlertTriangle,
+  Pencil,
 } from "lucide-react"
+import { useSession } from "@/lib/auth-client"
+import { useOrgProfile } from "@/lib/profile-store"
 
 const regulations = [
   {
@@ -69,11 +72,26 @@ const frameworks = [
 ]
 
 export default function ProfilePage() {
+  const { data: session } = useSession()
+  const { profile } = useOrgProfile()
+
+  const displayName = profile.displayName || session?.user?.name || "—"
+  const email = session?.user?.email || "—"
+  const orgName = profile.orgName || "My Organization"
+
+  const handleExport = () => {
+    window.print()
+  }
+
   return (
     <div className="min-h-screen bg-brand-mist flex">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar />
+        <TopBar
+          orgName={orgName}
+          userName={profile.displayName || session?.user?.name || ""}
+          avatar={profile.avatar}
+        />
         <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6">
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -82,14 +100,66 @@ export default function ProfilePage() {
                   Compliance Profile
                 </h1>
                 <p className="text-gray-500 mt-1">
-                  Acme Fintech Ltd • Generated Sep 12, 2026 • Ruleset v0.1
+                  {orgName} • Generated Sep 12, 2026 • Ruleset v0.1
                 </p>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
                 Export PDF
               </Button>
             </div>
+
+            {/* General — your answers, editable */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  General
+                </CardTitle>
+                <Link href="/settings">
+                  <Button variant="ghost" size="sm" className="text-brand-teal">
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Edit
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                  {[
+                    ["Name", displayName],
+                    ["Email", email],
+                    ["Organization", profile.orgName || "—"],
+                    ["Industry", profile.industry || "—"],
+                    ["Team size", profile.sizeBand || "—"],
+                    ["Operating states", profile.states || "—"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-brand-mist rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+                      <p className="font-medium text-brand-navy break-words">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {profile.dataTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {profile.dataTypes.map((t) => (
+                      <Badge key={t} variant="secondary">{t}</Badge>
+                    ))}
+                  </div>
+                )}
+                {(!profile.orgName || !profile.industry) && (
+                  <p className="text-sm text-gray-500 mt-3">
+                    Missing details?{" "}
+                    <Link href="/onboarding" className="text-brand-teal font-medium hover:underline">
+                      Complete the profiler
+                    </Link>{" "}
+                    or edit in{" "}
+                    <Link href="/settings" className="text-brand-teal font-medium hover:underline">
+                      Settings
+                    </Link>
+                    .
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Score card */}
             <Card>
@@ -224,10 +294,12 @@ export default function ProfilePage() {
                     <p className="text-sm text-gray-500 mb-4">
                       15 ready-to-customize templates based on your profile.
                     </p>
-                    <Button>
-                      View policy library
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link href="/policies">
+                      <Button>
+                        View policy library
+                        <ExternalLink className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -270,17 +342,7 @@ export default function ProfilePage() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <ul className="space-y-2">
-                          {phase.items.map((item) => (
-                            <li
-                              key={item}
-                              className="flex items-center gap-2 text-sm text-brand-navy"
-                            >
-                              <div className="h-4 w-4 rounded border border-gray-300 flex-shrink-0" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        <PlanChecklist items={phase.items} />
                       </CardContent>
                     </Card>
                   ))}
@@ -292,5 +354,37 @@ export default function ProfilePage() {
       </div>
       <MobileNav />
     </div>
+  )
+}
+
+function PlanChecklist({ items }: { items: string[] }) {
+  const [done, setDone] = useState<string[]>([])
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => {
+        const checked = done.includes(item)
+        return (
+          <li key={item}>
+            <button
+              onClick={() =>
+                setDone((prev) =>
+                  prev.includes(item) ? prev.filter((d) => d !== item) : [...prev, item]
+                )
+              }
+              className="flex items-center gap-2 text-sm text-brand-navy w-full text-left"
+            >
+              <div
+                className={
+                  checked
+                    ? "h-4 w-4 rounded border border-brand-teal bg-brand-teal flex-shrink-0"
+                    : "h-4 w-4 rounded border border-gray-300 flex-shrink-0"
+                }
+              />
+              <span className={checked ? "line-through text-gray-400" : ""}>{item}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

@@ -72,19 +72,34 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
 </html>
   `
 
+  // NOTE: Resend free-tier sender (onboarding@resend.dev) only delivers
+  // to the Resend account owner's inbox. To email ANY address, verify a
+  // domain at resend.com/domains and set FROM_EMAIL env var, e.g.
+  // FROM_EMAIL="Cyber Trust Nest <noreply@yourdomain.com>"
+  const from = process.env.FROM_EMAIL || "Cyber Trust Nest <onboarding@resend.dev>"
+
   try {
-    await getResend().emails.send({
-      from: "Cyber Trust Nest <onboarding@resend.dev>",
+    const { error } = await getResend().emails.send({
+      from,
       to: email,
       subject,
       html,
     })
+    if (error) {
+      console.error(`[AUTH] Resend rejected OTP to ${email}:`, error)
+      throw new Error(
+        `Email provider rejected the send (${error.message || "unknown reason"}). ` +
+        `If testing with onboarding@resend.dev, codes only arrive at the Resend account owner's inbox — verify a domain to email anyone.`
+      )
+    }
     console.log(`[AUTH] OTP sent to ${email} (type: ${type})`)
   } catch (error) {
-    console.error(`[AUTH] Failed to send OTP to ${email}:`, error)
     // In development, log the OTP so you can test without Resend
     if (process.env.NODE_ENV === "development") {
       console.log(`[AUTH] DEV MODE — OTP for ${email}: ${otp}`)
     }
+    // Re-throw so Better Auth returns the failure to the client
+    // instead of silently pretending the code was sent.
+    throw error instanceof Error ? error : new Error("Failed to send email")
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,19 @@ import { Label } from "@/components/ui/label"
 import { ShieldCheck, ArrowRight, Mail, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 
+function friendlyError(raw: string): string {
+  const msg = raw || "Failed to send code. Try again."
+  if (/rate.?limit|too many|429/i.test(msg)) {
+    return "Too many attempts. Wait about a minute, then try again."
+  }
+  if (/rejected|only.*inbox|verify a domain/i.test(msg)) {
+    return msg + " Also check your spam folder."
+  }
+  return msg
+}
+
+const RESEND_COOLDOWN = 30
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -16,6 +29,13 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,14 +49,15 @@ export default function LoginPage() {
       })
 
       if (otpError) {
-        setError(otpError.message || "Failed to send code. Try again.")
+        setError(friendlyError((otpError as { message?: string }).message ?? ""))
         setLoading(false)
         return
       }
 
       setOtpSent(true)
+      setCooldown(RESEND_COOLDOWN)
     } catch {
-      setError("Something went wrong. Try again.")
+      setError("Something went wrong. Check your connection and try again.")
     } finally {
       setLoading(false)
     }
@@ -54,12 +75,19 @@ export default function LoginPage() {
       })
 
       if (signInError) {
-        setError(signInError.message || "Invalid code. Try again.")
+        const msg = (signInError as { message?: string }).message ?? ""
+        setError(
+          /invalid|expired|attempt/i.test(msg)
+            ? "That code didn't work — it may have expired. Request a new one below."
+            : msg || "Invalid code. Try again."
+        )
         setLoading(false)
         return
       }
 
+      // Force session state to refresh so the dashboard guard sees the new session
       router.push("/dashboard")
+      router.refresh()
     } catch {
       setError("Something went wrong. Try again.")
     } finally {
@@ -116,7 +144,7 @@ export default function LoginPage() {
               <div className="flex items-center gap-2 bg-status-infoBg rounded-lg p-3 text-sm text-brand-navy">
                 <Mail className="h-4 w-4 flex-shrink-0" />
                 <span>
-                  Code sent to <strong>{email}</strong>
+                  Code sent to <strong>{email}</strong>. Check spam too.
                 </span>
               </div>
               <div className="space-y-2">
@@ -124,9 +152,10 @@ export default function LoginPage() {
                 <Input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
                   placeholder="Enter 6-digit code"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   maxLength={6}
                   required
                 />
@@ -139,13 +168,23 @@ export default function LoginPage() {
                 )}
                 {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
-              <button
-                type="button"
-                onClick={() => { setOtpSent(false); setOtp(""); setError("") }}
-                className="w-full text-sm text-gray-500 hover:text-brand-navy"
-              >
-                Use a different email
-              </button>
+              <div className="flex items-center justify-between text-sm">
+                <button
+                  type="button"
+                  onClick={() => { setOtpSent(false); setOtp(""); setError("") }}
+                  className="text-gray-500 hover:text-brand-navy"
+                >
+                  Use a different email
+                </button>
+                <button
+                  type="button"
+                  disabled={cooldown > 0 || loading}
+                  onClick={handleSendOtp}
+                  className="text-brand-teal font-medium hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                </button>
+              </div>
             </form>
           )}
         </div>

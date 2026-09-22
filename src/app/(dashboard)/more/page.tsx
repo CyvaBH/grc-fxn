@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
@@ -13,7 +15,9 @@ import {
   FileCheck,
   CalendarClock,
   LogOut,
+  Loader2,
 } from "lucide-react"
+import { authClient } from "@/lib/auth-client"
 
 const menuItems = [
   { href: "/trainings", label: "Staff Training", icon: GraduationCap, desc: "Phishing awareness & security basics" },
@@ -25,6 +29,19 @@ const menuItems = [
 ]
 
 export default function MorePage() {
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await authClient.signOut()
+    } finally {
+      router.push("/login")
+      router.refresh()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-brand-mist flex">
       <Sidebar />
@@ -50,12 +67,24 @@ export default function MorePage() {
                 </Link>
               ))}
             </div>
-            <Card className="border-status-critBg">
-              <CardContent className="p-4 flex items-center gap-4 cursor-pointer hover:bg-status-critBg/50 transition-colors">
-                <LogOut className="h-5 w-5 text-status-critTx" />
-                <p className="font-medium text-status-critTx text-sm">Sign out</p>
-              </CardContent>
-            </Card>
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="w-full text-left"
+            >
+              <Card className="border-status-critBg">
+                <CardContent className="p-4 flex items-center gap-4 cursor-pointer hover:bg-status-critBg/50 transition-colors">
+                  {signingOut ? (
+                    <Loader2 className="h-5 w-5 text-status-critTx animate-spin" />
+                  ) : (
+                    <LogOut className="h-5 w-5 text-status-critTx" />
+                  )}
+                  <p className="font-medium text-status-critTx text-sm">
+                    {signingOut ? "Signing out…" : "Sign out"}
+                  </p>
+                </CardContent>
+              </Card>
+            </button>
           </div>
         </main>
       </div>

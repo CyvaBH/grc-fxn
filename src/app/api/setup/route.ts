@@ -43,6 +43,22 @@ export async function GET() {
         "createdAt" timestamp NOT NULL DEFAULT now(),
         "updatedAt" timestamp NOT NULL DEFAULT now()
       )`,
+      `CREATE TABLE IF NOT EXISTS "organization_profile" (
+        "id" text PRIMARY KEY,
+        "userId" text NOT NULL UNIQUE REFERENCES "user"("id") ON DELETE CASCADE,
+        "displayName" text NOT NULL DEFAULT '',
+        "orgName" text NOT NULL DEFAULT '',
+        "industry" text NOT NULL DEFAULT '',
+        "sizeBand" text NOT NULL DEFAULT '',
+        "states" text NOT NULL DEFAULT '',
+        "dataTypes" text NOT NULL DEFAULT '[]',
+        "handlesPayments" boolean NOT NULL DEFAULT false,
+        "healthData" boolean NOT NULL DEFAULT false,
+        "hasWebsite" boolean NOT NULL DEFAULT false,
+        "enterpriseClients" boolean NOT NULL DEFAULT false,
+        "createdAt" timestamp NOT NULL DEFAULT now(),
+        "updatedAt" timestamp NOT NULL DEFAULT now()
+      )`,
       `CREATE TABLE IF NOT EXISTS "verification" (
         "id" text PRIMARY KEY,
         "identifier" text NOT NULL,
@@ -61,7 +77,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      message: "Tables created: user, session, account, verification",
+      message: "Tables created: user, session, account, verification, organization_profile",
     })
   } catch (error) {
     await pool.end()

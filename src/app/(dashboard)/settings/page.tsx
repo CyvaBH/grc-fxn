@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,14 +10,112 @@ import { Label } from "@/components/ui/label"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
-import { User, CreditCard, Bell, Shield, LogOut } from "lucide-react"
+import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2 } from "lucide-react"
+import { authClient, useSession } from "@/lib/auth-client"
+import { fileToAvatarDataUrl, getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
+import { cn } from "@/lib/utils"
 
 export default function SettingsPage() {
+  const router = useRouter()
+  const { data: session } = useSession()
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [orgName, setOrgName] = useState("")
+  const [industry, setIndustry] = useState("")
+  const [sizeBand, setSizeBand] = useState("")
+  const [notif, setNotif] = useState({ deadlines: true, newsletter: true, trainings: false })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  const [avatarError, setAvatarError] = useState("")
+
+  // Load session + server profile, fall back to local copy
+  useEffect(() => {
+    const local = getLocalProfile()
+    setOrgName(local.orgName)
+    setIndustry(local.industry)
+    setSizeBand(local.sizeBand)
+    setAvatar(local.avatar)
+    setName(local.displayName)
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return
+        if (data.user) {
+          setName((n) => data.user.name || n)
+          setEmail(data.user.email || "")
+          if (data.user.image) setAvatar(data.user.image)
+        }
+        if (data.profile) {
+          const p = data.profile
+          setOrgName(p.orgName || "")
+          setIndustry(p.industry || "")
+          setSizeBand(p.sizeBand || "")
+          if (p.displayName && !data.user?.name) setName(p.displayName)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (session?.user?.email) setEmail(session.user.email)
+    if (session?.user?.name) setName((n) => n || session.user.name)
+  }, [session])
+
+  const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarError("")
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file)
+      setAvatar(dataUrl)
+    } catch {
+      setAvatarError("Could not read that image. Try a JPG or PNG.")
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaved(false)
+    const patch = { displayName: name.trim(), orgName: orgName.trim(), industry, sizeBand, avatar }
+    saveLocalProfile(patch)
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), ...patch }),
+      })
+      if (!res.ok) throw new Error("save failed")
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      setAvatarError("Saved on this device, but server sync failed. Check your connection.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await authClient.signOut()
+    } finally {
+      router.push("/login")
+      router.refresh()
+    }
+  }
+
+  const toggleNotif = (key: keyof typeof notif) =>
+    setNotif((prev) => ({ ...prev, [key]: !prev[key] }))
+
   return (
     <div className="min-h-screen bg-brand-mist flex">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar />
+        <TopBar orgName={orgName || "My Organization"} userName={name} avatar={avatar} />
         <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6">
           <div className="max-w-3xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-brand-navy">Settings</h1>
@@ -28,17 +129,60 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input defaultValue="Adaeze Obi" />
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-brand-teal/15 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatar} alt="Profile photo" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-bold text-brand-teal">
+                        {(name.trim()[0] || "?").toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input defaultValue="adaeze@acmefintech.com" disabled />
+                  <div>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={handleAvatarPick}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                      <Camera className="mr-2 h-4 w-4" />
+                      {avatar ? "Change photo" : "Upload photo"}
+                    </Button>
+                    {avatar && (
+                      <button
+                        onClick={() => setAvatar(null)}
+                        className="ml-3 text-xs text-gray-500 hover:text-status-critTx"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">JPG or PNG, cropped to a small square.</p>
                   </div>
                 </div>
-                <Button size="sm">Save changes</Button>
+                {avatarError && <p className="text-xs text-status-critTx">{avatarError}</p>}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="set-name">Name</Label>
+                    <Input
+                      id="set-name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Adaeze Obi"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="set-email">Email</Label>
+                    <Input id="set-email" value={email} disabled placeholder="you@company.com" />
+                  </div>
+                </div>
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="mr-2 h-4 w-4" /> : null}
+                  {saving ? "Saving…" : saved ? "Saved!" : "Save changes"}
+                </Button>
               </CardContent>
             </Card>
 
@@ -53,13 +197,40 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Organization name</Label>
-                    <Input defaultValue="Acme Fintech Ltd" />
+                    <Label htmlFor="set-org">Organization name</Label>
+                    <Input
+                      id="set-org"
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      placeholder="e.g. Acme Fintech Ltd"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Industry</Label>
-                    <Input defaultValue="Fintech / Financial Services" disabled />
+                    <Label htmlFor="set-industry">Industry</Label>
+                    <Input
+                      id="set-industry"
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      placeholder="e.g. Fintech / Financial Services"
+                    />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="set-size">Team size</Label>
+                    <Input
+                      id="set-size"
+                      value={sizeBand}
+                      onChange={(e) => setSizeBand(e.target.value)}
+                      placeholder="e.g. 11-50"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button size="sm" onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving…" : "Save organization"}
+                  </Button>
+                  <Link href="/onboarding" className="text-sm text-brand-teal hover:underline">
+                    Re-take profiler
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -75,14 +246,10 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="flex items-center justify-between p-4 bg-brand-mist rounded-lg">
                   <div>
-                    <p className="font-medium text-brand-navy text-sm">
-                      Free Plan
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      1 profile, 3 deadlines, newsletter
-                    </p>
+                    <p className="font-medium text-brand-navy text-sm">Free Plan</p>
+                    <p className="text-xs text-gray-500">1 profile, 3 deadlines, newsletter</p>
                   </div>
-                  <Button size="sm">Upgrade to Pro</Button>
+                  <Button size="sm" onClick={() => router.push("/more")}>Upgrade to Pro</Button>
                 </div>
               </CardContent>
             </Card>
@@ -97,22 +264,23 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { label: "Deadline reminders", desc: "Email 30/14/7/1 days before" },
-                  { label: "Newsletter", desc: "Monthly compliance updates" },
-                  { label: "Training reminders", desc: "When new modules are available" },
+                  { key: "deadlines" as const, label: "Deadline reminders", desc: "Email 30/14/7/1 days before" },
+                  { key: "newsletter" as const, label: "Newsletter", desc: "Monthly compliance updates" },
+                  { key: "trainings" as const, label: "Training reminders", desc: "When new modules are available" },
                 ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-brand-mist"
+                  <button
+                    key={item.key}
+                    onClick={() => toggleNotif(item.key)}
+                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-brand-mist text-left"
                   >
                     <div>
                       <p className="text-sm font-medium text-brand-navy">{item.label}</p>
                       <p className="text-xs text-gray-500">{item.desc}</p>
                     </div>
-                    <div className="h-5 w-9 rounded-full bg-brand-teal relative cursor-pointer">
-                      <div className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm" />
+                    <div className={cn("h-5 w-9 rounded-full relative transition-colors", notif[item.key] ? "bg-brand-teal" : "bg-gray-300")}>
+                      <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all", notif[item.key] ? "right-0.5" : "left-0.5")} />
                     </div>
-                  </div>
+                  </button>
                 ))}
               </CardContent>
             </Card>
@@ -120,9 +288,9 @@ export default function SettingsPage() {
             {/* Sign out */}
             <Card className="border-status-critBg">
               <CardContent className="p-4">
-                <Button variant="destructive" className="w-full">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                <Button variant="destructive" className="w-full" onClick={handleSignOut} disabled={signingOut}>
+                  {signingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                  {signingOut ? "Signing out…" : "Sign out"}
                 </Button>
               </CardContent>
             </Card>

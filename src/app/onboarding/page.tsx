@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -99,8 +100,42 @@ export default function OnboardingPage() {
     }
   }
 
-  const handleFinish = () => {
-    router.push("/dashboard")
+  const [saving, setSaving] = useState(false)
+
+  // Resume where a returning user left off
+  useEffect(() => {
+    const saved = getLocalProfile()
+    if (saved.orgName || saved.industry || saved.sizeBand || saved.dataTypes.length > 0) {
+      setData((prev) => ({
+        ...prev,
+        orgName: saved.orgName,
+        industry: saved.industry,
+        sizeBand: saved.sizeBand,
+        states: saved.states,
+        dataTypes: saved.dataTypes,
+        handlesPayments: saved.handlesPayments,
+        healthData: saved.healthData,
+        hasWebsite: saved.hasWebsite,
+        enterpriseClients: saved.enterpriseClients,
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleFinish = async () => {
+    setSaving(true)
+    saveLocalProfile({ ...data })
+    try {
+      await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    } catch {
+      // Server sync failed (e.g. offline) — local copy still lets them continue
+    } finally {
+      router.push("/dashboard")
+    }
   }
 
   return (
@@ -338,8 +373,8 @@ export default function OnboardingPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleFinish}>
-                Generate my profile
+              <Button onClick={handleFinish} disabled={saving}>
+                {saving ? "Saving…" : "Generate my profile"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

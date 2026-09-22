@@ -1,114 +1,99 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRef, useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
-import { FileText, Download, ArrowRight } from "lucide-react"
-
-const policies = [
-  {
-    name: "Data Protection & Privacy Policy",
-    status: "ready",
-    variables: 5,
-    required: true,
-  },
-  {
-    name: "Acceptable Use Policy",
-    status: "ready",
-    variables: 3,
-    required: true,
-  },
-  {
-    name: "Access Control & Password Policy",
-    status: "ready",
-    variables: 4,
-    required: true,
-  },
-  {
-    name: "Incident Response Plan",
-    status: "ready",
-    variables: 6,
-    required: true,
-  },
-  {
-    name: "Business Continuity Plan",
-    status: "ready",
-    variables: 5,
-    required: false,
-  },
-  {
-    name: "HR Onboarding & Exit Policy",
-    status: "ready",
-    variables: 4,
-    required: false,
-  },
-  {
-    name: "BYOD / Mobile Device Policy",
-    status: "ready",
-    variables: 3,
-    required: false,
-  },
-  {
-    name: "Data Retention & Disposal Policy",
-    status: "ready",
-    variables: 4,
-    required: true,
-  },
-  {
-    name: "Vendor Management Policy",
-    status: "ready",
-    variables: 5,
-    required: false,
-  },
-  {
-    name: "Physical Security Policy",
-    status: "ready",
-    variables: 3,
-    required: false,
-  },
-  {
-    name: "Network & Cloud Baseline Policy",
-    status: "ready",
-    variables: 4,
-    required: false,
-  },
-  {
-    name: "Audit & Logging Policy",
-    status: "ready",
-    variables: 3,
-    required: true,
-  },
-  {
-    name: "Training & Awareness Policy",
-    status: "ready",
-    variables: 3,
-    required: true,
-  },
-  {
-    name: "DPO Designation Letter",
-    status: "ready",
-    variables: 4,
-    required: true,
-  },
-  {
-    name: "Data Subject Request Procedure",
-    status: "ready",
-    variables: 5,
-    required: true,
-  },
-]
+import { FileText, Download, ArrowRight, X, Copy, Check } from "lucide-react"
+import { useSession } from "@/lib/auth-client"
+import { useOrgProfile } from "@/lib/profile-store"
+import {
+  POLICY_TEMPLATES,
+  downloadTextFile,
+  fillTemplate,
+  type PolicyTemplate,
+} from "@/lib/policy-templates"
 
 export default function PoliciesPage() {
-  const requiredCount = policies.filter((p) => p.required).length
+  const { data: session } = useSession()
+  const { profile } = useOrgProfile()
+  const [active, setActive] = useState<PolicyTemplate | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [body, setBody] = useState("")
+  const [copied, setCopied] = useState(false)
+  // While true, field edits re-fill the document; typing in the
+  // document switches to manual mode so edits are never wiped.
+  const autoFill = useRef(true)
+
+  const requiredCount = POLICY_TEMPLATES.filter((p) => p.required).length
+
+  const defaultValues = (tpl: PolicyTemplate): Record<string, string> => {
+    const defaults: Record<string, string> = {
+      ORG_NAME: profile.orgName || "",
+      INDUSTRY: profile.industry || "",
+      CONTACT_EMAIL: session?.user?.email || "",
+      DPO_NAME: profile.displayName || session?.user?.name || "",
+      EFFECTIVE_DATE: new Date().toLocaleDateString("en-NG", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    }
+    const initial: Record<string, string> = {}
+    for (const f of tpl.fields) initial[f.id] = defaults[f.id] ?? ""
+    return initial
+  }
+
+  const openTemplate = (tpl: PolicyTemplate) => {
+    const initial = defaultValues(tpl)
+    setValues(initial)
+    setBody(fillTemplate(tpl.body, initial))
+    setCopied(false)
+    autoFill.current = true
+    setActive(tpl)
+  }
+
+  const quickDownload = (tpl: PolicyTemplate) => {
+    downloadTextFile(`${tpl.id}-policy.md`, fillTemplate(tpl.body, defaultValues(tpl)))
+  }
+
+  const preview = body
+
+  const setField = (id: string, v: string) => {
+    const next = { ...values, [id]: v }
+    setValues(next)
+    if (active && autoFill.current) setBody(fillTemplate(active.body, next))
+  }
+
+  const handleDownload = () => {
+    if (!active) return
+    const filename = `${active.id}-policy.md`
+    downloadTextFile(filename, preview)
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(preview)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar />
+        <TopBar
+          orgName={profile.orgName || "My Organization"}
+          userName={profile.displayName || session?.user?.name || ""}
+          avatar={profile.avatar}
+        />
         <main className="flex-1 p-4 lg:p-6 pb-20 lg:pb-6">
           <div className="max-w-6xl mx-auto space-y-6">
             <div>
@@ -116,15 +101,15 @@ export default function PoliciesPage() {
                 Policy Templates
               </h1>
               <p className="text-gray-500 mt-1">
-                {policies.length} templates available • {requiredCount} required
+                {POLICY_TEMPLATES.length} templates available • {requiredCount} required
                 for your profile
               </p>
             </div>
 
             <div className="grid gap-4">
-              {policies.map((policy) => (
+              {POLICY_TEMPLATES.map((policy) => (
                 <Card
-                  key={policy.name}
+                  key={policy.id}
                   className="hover:border-brand-teal/30 transition-colors"
                 >
                   <CardContent className="p-4 flex items-center gap-4">
@@ -143,14 +128,19 @@ export default function PoliciesPage() {
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {policy.variables} fields to customize
+                        {policy.blurb}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Download ${policy.name}`}
+                        onClick={() => quickDownload(policy)}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button size="sm">
+                      <Button size="sm" onClick={() => openTemplate(policy)}>
                         Use template
                         <ArrowRight className="ml-1 h-3 w-3" />
                       </Button>
@@ -163,6 +153,66 @@ export default function PoliciesPage() {
         </main>
       </div>
       <MobileNav />
+
+      {/* Editor modal */}
+      {active && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-brand-navy/50 p-0 sm:p-6">
+          <div className="bg-white w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+            <div className="sticky top-0 bg-white border-b border-border px-5 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-brand-navy">{active.name}</h2>
+                <p className="text-xs text-gray-500">
+                  Fill the fields, edit the text, then download or copy.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setActive(null)} aria-label="Close editor">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-5 space-y-5">
+              <div className="grid sm:grid-cols-2 gap-4">
+                {active.fields.map((f) => (
+                  <div key={f.id} className="space-y-1.5">
+                    <Label htmlFor={`tpl-${f.id}`}>{f.label}</Label>
+                    <Input
+                      id={`tpl-${f.id}`}
+                      value={values[f.id] ?? ""}
+                      placeholder={f.placeholder}
+                      onChange={(e) => setField(f.id, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tpl-body">Document (editable)</Label>
+                <Textarea
+                  id="tpl-body"
+                  value={preview}
+                  onChange={(e) => {
+                    autoFill.current = false
+                    setBody(e.target.value)
+                  }}
+                  rows={18}
+                  className="font-mono text-xs leading-relaxed"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 pb-2">
+                <Button onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download .md
+                </Button>
+                <Button variant="outline" onClick={handleCopy}>
+                  {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                  {copied ? "Copied!" : "Copy text"}
+                </Button>
+                <Button variant="ghost" onClick={() => setActive(null)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
