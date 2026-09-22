@@ -74,7 +74,7 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
 
   try {
     await getResend().emails.send({
-      from: "Cyber Trust Nest <noreply@cybertrustnest.com>",
+      from: "Cyber Trust Nest <onboarding@resend.dev>",
       to: email,
       subject,
       html,
