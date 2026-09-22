@@ -1,15 +1,15 @@
 import { betterAuth } from "better-auth"
 import { emailOTP } from "better-auth/plugins"
-import { createClient } from "@libsql/client"
+import { Pool } from "pg"
 import { sendOTPEmail } from "@/lib/email"
 
-const db = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 })
 
 export const auth = betterAuth({
-  database: db,
+  database: pool,
   emailAndPassword: {
     enabled: false,
   },
