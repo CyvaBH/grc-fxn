@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { Pool } from "pg"
 
 export async function GET() {
-  try {
-    // @ts-expect-error - auth.db is internal
-    const db = auth.db
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  })
 
-    // Create Better Auth tables
+  try {
     const queries = [
       `CREATE TABLE IF NOT EXISTS "user" (
         "id" text PRIMARY KEY,
@@ -53,14 +54,17 @@ export async function GET() {
     ]
 
     for (const query of queries) {
-      await db.execute(query)
+      await pool.query(query)
     }
+
+    await pool.end()
 
     return NextResponse.json({
       success: true,
-      message: "Better Auth tables created successfully",
+      message: "Tables created: user, session, account, verification",
     })
   } catch (error) {
+    await pool.end()
     return NextResponse.json(
       { success: false, error: (error as Error).message },
       { status: 500 }
