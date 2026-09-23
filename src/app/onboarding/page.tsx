@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DATA_TYPES } from "@/lib/data-types"
 import { StateSelector, statesArray } from "@/components/state-selector"
+import {
+  ContextBuilder,
+  composeContext,
+  contextDetailComplete,
+  parseContextDetail,
+  EMPTY_CONTEXT_DETAIL,
+  type ContextDetail,
+} from "@/components/context-builder"
 import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 import { useSession } from "@/lib/auth-client"
 
@@ -55,6 +61,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const [industryLocked, setIndustryLocked] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [ctxDetail, setCtxDetail] = useState<ContextDetail>(EMPTY_CONTEXT_DETAIL)
   const [data, setData] = useState<ProfilerData>({
     orgName: "",
     industry: "",
@@ -104,6 +111,9 @@ export default function OnboardingPage() {
             dataTypes: prev.dataTypes.length > 0 ? prev.dataTypes : p.dataTypes || [],
             context: prev.context || p.context || "",
           }))
+          if (p.contextDetail || p.context) {
+            setCtxDetail(parseContextDetail(p.contextDetail || "", p.context || ""))
+          }
         }
       })
       .catch(() => {})
@@ -132,7 +142,7 @@ export default function OnboardingPage() {
       case 4:
         return data.dataTypes.length > 0
       case 5:
-        return data.context.trim().length >= 30
+        return contextDetailComplete(ctxDetail)
       case 6:
         return true
       default:
@@ -142,12 +152,14 @@ export default function OnboardingPage() {
 
   const handleFinish = async () => {
     setSaving(true)
-    saveLocalProfile({ ...data })
+    const composed = composeContext(ctxDetail)
+    const payload = { ...data, context: composed, contextDetail: JSON.stringify(ctxDetail) }
+    saveLocalProfile(payload)
     try {
       await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
     } catch {
       // Server sync failed — local copy still lets them continue
@@ -365,7 +377,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 5: Organizational context */}
+          {/* Step 5: Organizational context (checklists + notes) */}
           {step === 5 && (
             <div className="space-y-6">
               <div>
@@ -373,32 +385,11 @@ export default function OnboardingPage() {
                   Describe your organizational context
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  Like ISO 27001 Clause 4 and the NDPA require: what you do, who you
-                  serve, your staff (onsite, hybrid, remote, contractors), who you
-                  depend on (vendors, cloud), and where data flows. At least a few
-                  sentences — this tailors your policy list.
+                  Like ISO 27001 Clause 4 and the NDPA require: tick what applies, add
+                  notes only where you want. This tailors your policy list.
                 </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="context">Organizational context</Label>
-                <Textarea
-                  id="context"
-                  rows={7}
-                  value={data.context}
-                  onChange={(e) => setData((prev) => ({ ...prev, context: e.target.value }))}
-                  placeholder={"Example: We are a 25-person Lagos fintech offering mobile savings wallets. Our team is mixed: 15 onsite in Ikeja, 10 hybrid, plus 3 contractors. Customer data lives in AWS and a Postgres database managed by our 4-person engineering team. We use Paystack for processing and share KYC data with two verification vendors."}
-                />
-                <p className={cn("text-xs", data.context.trim().length >= 30 ? "text-brand-teal" : "text-gray-400")}>
-                  {data.context.trim().length}/30 characters minimum
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">What you do</Badge>
-                <Badge variant="secondary">Who you serve</Badge>
-                <Badge variant="secondary">Vendors & cloud</Badge>
-                <Badge variant="secondary">Staff & roles</Badge>
-                <Badge variant="secondary">Where data flows</Badge>
-              </div>
+              <ContextBuilder value={ctxDetail} onChange={setCtxDetail} />
             </div>
           )}
 

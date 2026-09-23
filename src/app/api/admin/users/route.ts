@@ -37,3 +37,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }
+
+// DELETE /api/admin/users?userId= — permanently delete a user and everything
+// attached (sessions, profile, tickets, evidence, training). Cannot delete self.
+export async function DELETE(req: Request) {
+  const gate = await requireAdmin(req)
+  if ("error" in gate) return gate.error
+
+  const userId = new URL(req.url).searchParams.get("userId")
+  if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+  if (userId === gate.user.id) {
+    return NextResponse.json({ error: "You cannot delete your own admin account" }, { status: 400 })
+  }
+
+  const db = dbPool()
+  try {
+    const { rowCount } = await db.query(`DELETE FROM "user" WHERE id = $1`, [userId])
+    await db.end()
+    if (!rowCount) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    await db.end()
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+  }
+}

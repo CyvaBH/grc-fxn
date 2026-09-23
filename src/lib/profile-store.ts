@@ -15,6 +15,7 @@ export interface OrgProfile {
   enterpriseClients: boolean
   avatar: string | null
   context: string
+  contextDetail: string
   newsletterOptOut: boolean
 }
 
@@ -31,6 +32,7 @@ export const EMPTY_PROFILE: OrgProfile = {
   enterpriseClients: false,
   avatar: null,
   context: "",
+  contextDetail: "",
   newsletterOptOut: false,
 }
 

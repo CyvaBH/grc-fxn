@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   ArrowLeft,
   CheckCircle2,
+  Trash2,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { useOrgProfile } from "@/lib/profile-store"
@@ -107,6 +108,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [query, setQuery] = useState("")
   const [usersLoading, setUsersLoading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [tickets, setTickets] = useState<AdminTicket[]>([])
   const [ticketFilter, setTicketFilter] = useState("open")
   const [ticketsLoading, setTicketsLoading] = useState(false)
@@ -551,6 +553,34 @@ export default function AdminPage() {
                               Joined {new Date(u.createdAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" })}
                             </p>
                           </div>
+                          {confirmDelete === u.id ? (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={async () => {
+                                  await fetch(`/api/admin/users?userId=${u.id}`, { method: "DELETE" })
+                                  setConfirmDelete(null)
+                                  loadUsers(query)
+                                  loadOverview()
+                                }}
+                              >
+                                Confirm
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                                Keep
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-gray-400 hover:text-status-critTx flex-shrink-0"
+                              onClick={() => setConfirmDelete(u.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))
                     )}

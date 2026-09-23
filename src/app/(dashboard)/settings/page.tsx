@@ -7,11 +7,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { StateSelector } from "@/components/state-selector"
+import {
+  ContextBuilder,
+  composeContext,
+  parseContextDetail,
+  EMPTY_CONTEXT_DETAIL,
+  type ContextDetail,
+} from "@/components/context-builder"
 import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2, Lock, Trash2 } from "lucide-react"
 import { authClient, useSession } from "@/lib/auth-client"
 import { fileToAvatarDataUrl, getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
@@ -30,6 +36,7 @@ export default function SettingsPage() {
   const [sizeBand, setSizeBand] = useState("")
   const [states, setStates] = useState("")
   const [context, setContext] = useState("")
+  const [ctxDetail, setCtxDetail] = useState<ContextDetail>(EMPTY_CONTEXT_DETAIL)
   const [notif, setNotif] = useState({ deadlines: true, newsletter: true, trainings: false })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -47,6 +54,9 @@ export default function SettingsPage() {
     setSizeBand(local.sizeBand)
     setStates(local.states)
     setContext(local.context)
+    if (local.contextDetail || local.context) {
+      setCtxDetail(parseContextDetail(local.contextDetail || "", local.context || ""))
+    }
     setAvatar(local.avatar)
     setName(local.displayName)
     setNotif((n) => ({ ...n, newsletter: !local.newsletterOptOut }))
@@ -66,6 +76,9 @@ export default function SettingsPage() {
           setSizeBand(p.sizeBand || "")
           setStates(p.states || "")
           setContext(p.context || "")
+          if (p.contextDetail || p.context) {
+            setCtxDetail(parseContextDetail(p.contextDetail || "", p.context || ""))
+          }
           setNotif((n) => ({ ...n, newsletter: !p.newsletterOptOut }))
           if (p.displayName && !data.user?.name) setName(p.displayName)
         }
@@ -94,12 +107,15 @@ export default function SettingsPage() {
     setSaving(true)
     setSaved(false)
     // Industry is locked after first save — never send a change for it
+    const composed = composeContext(ctxDetail)
+    setContext(composed)
     const patch = {
       displayName: name.trim(),
       orgName: orgName.trim(),
       sizeBand,
       states,
-      context: context.trim(),
+      context: composed,
+      contextDetail: JSON.stringify(ctxDetail),
       newsletterOptOut: !notif.newsletter,
       avatar,
     }
@@ -292,14 +308,8 @@ export default function SettingsPage() {
                   <StateSelector value={states} onChange={setStates} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="set-context">Organizational context</Label>
-                  <Textarea
-                    id="set-context"
-                    rows={5}
-                    value={context}
-                    onChange={(e) => setContext(e.target.value)}
-                    placeholder="What you do, who you serve, vendors, cloud, remote staff, data flows…"
-                  />
+                  <Label>Organizational context</Label>
+                  <ContextBuilder value={ctxDetail} onChange={setCtxDetail} />
                   <p className="text-xs text-gray-400">Editing this re-tailors your policy list.</p>
                 </div>
                 <div className="flex items-center gap-3">

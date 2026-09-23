@@ -23,6 +23,7 @@ export const CREATE_PROFILE_TABLE = `CREATE TABLE IF NOT EXISTS "organization_pr
   "hasWebsite" boolean NOT NULL DEFAULT false,
   "enterpriseClients" boolean NOT NULL DEFAULT false,
   "context" text NOT NULL DEFAULT '',
+  "contextDetail" text NOT NULL DEFAULT '',
   "newsletterOptOut" boolean NOT NULL DEFAULT false,
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
@@ -51,6 +52,7 @@ function rowToProfile(row: Record<string, unknown>) {
     hasWebsite: Boolean(row.hasWebsite),
     enterpriseClients: Boolean(row.enterpriseClients),
     context: (row.context as string) || "",
+    contextDetail: (row.contextDetail as string) || "",
     newsletterOptOut: Boolean(row.newsletterOptOut),
   }
 }
@@ -92,6 +94,7 @@ const PROFILE_FIELDS = [
   "hasWebsite",
   "enterpriseClients",
   "context",
+  "contextDetail",
   "newsletterOptOut",
 ] as const
 
