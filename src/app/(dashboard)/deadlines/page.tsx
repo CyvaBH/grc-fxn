@@ -15,6 +15,9 @@ import {
   CheckCircle2,
   Trash2,
   Sparkles,
+  Pencil,
+  Lock,
+  X,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { useOrgProfile } from "@/lib/profile-store"
@@ -30,9 +33,13 @@ interface Deadline {
   recurrence: string
   priority: "High" | "Med" | "Low"
   done: boolean
+  /** Auto-created renewals can't be deleted — only rescheduled. */
+  locked?: boolean
+  renewedFrom?: number
 }
 
 const KEY = "ctn-deadlines-v1"
+const RECURRENCES = ["once", "weekly", "monthly", "quarterly", "yearly"]
 
 /** Sensible default horizons by priority — editable per deadline. */
 const PRIORITY_DAYS: Record<Deadline["priority"], number> = {
@@ -47,9 +54,26 @@ function isoPlus(days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+function advance(dateStr: string, recurrence: string): string {
+  const d = new Date(dateStr + "T00:00:00")
+  if (recurrence === "weekly") d.setDate(d.getDate() + 7)
+  else if (recurrence === "monthly") d.setMonth(d.getMonth() + 1)
+  else if (recurrence === "quarterly") d.setMonth(d.getMonth() + 3)
+  else d.setFullYear(d.getFullYear() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
 function daysLeft(due: string): number {
   const ms = new Date(due + "T00:00:00").getTime() - Date.now()
   return Math.max(0, Math.ceil(ms / 86400000))
+}
+
+const EMPTY_FORM = {
+  title: "",
+  due: "",
+  owner: "",
+  recurrence: "once",
+  priority: "Med" as Deadline["priority"],
 }
 
 export default function DeadlinesPage() {
@@ -59,11 +83,9 @@ export default function DeadlinesPage() {
   const [deadlines, setDeadlines] = useState<Deadline[]>([])
   const [loaded, setLoaded] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
-  const [title, setTitle] = useState("")
-  const [due, setDue] = useState("")
-  const [owner, setOwner] = useState("")
-  const [recurrence, setRecurrence] = useState("once")
-  const [priority, setPriority] = useState<Deadline["priority"]>("Med")
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [notice, setNotice] = useState("")
 
   const userName = profile.displayName || session?.user?.name || "You"
 
@@ -71,7 +93,9 @@ export default function DeadlinesPage() {
     try {
       const raw = window.localStorage.getItem(KEY)
       if (raw) {
-        setDeadlines(JSON.parse(raw))
+        // Migrate old entries (no priority/locked fields)
+        const parsed = JSON.parse(raw) as Deadline[]
+        setDeadlines(parsed.map((d) => ({ ...d, priority: (d.priority || "Med") as Deadline["priority"] })))
       }
     } catch {}
     setLoaded(true)
@@ -84,26 +108,64 @@ export default function DeadlinesPage() {
     } catch {}
   }
 
-  const handleAdd = (e: React.FormEvent) => {
+  const flash = (msg: string) => {
+    setNotice(msg)
+    setTimeout(() => setNotice(""), 4000)
+  }
+
+  const openAdd = () => {
+    setForm({ ...EMPTY_FORM, due: isoPlus(PRIORITY_DAYS.Med) })
+    setEditingId(null)
+    setShowAdd(true)
+  }
+
+  const openEdit = (d: Deadline) => {
+    setForm({
+      title: d.title,
+      due: d.due,
+      owner: d.owner,
+      recurrence: d.recurrence,
+      priority: d.priority,
+    })
+    setEditingId(d.id)
+    setShowAdd(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !due) return
-    persist([
-      ...deadlines,
-      {
-        id: Date.now(),
-        title: title.trim(),
-        due,
-        owner: owner.trim() || userName,
-        recurrence: recurrence.trim() || "once",
-        priority,
-        done: false,
-      },
-    ])
-    setTitle("")
-    setDue("")
-    setOwner("")
-    setRecurrence("once")
-    setPriority("Med")
+    if (!form.title.trim() || !form.due) return
+    if (editingId !== null) {
+      persist(
+        deadlines.map((d) =>
+          d.id === editingId
+            ? {
+                ...d,
+                title: form.title.trim(),
+                due: form.due,
+                owner: form.owner.trim() || userName,
+                recurrence: form.recurrence.trim() || "once",
+                priority: form.priority,
+              }
+            : d
+        )
+      )
+      flash("Deadline updated.")
+    } else {
+      persist([
+        ...deadlines,
+        {
+          id: Date.now(),
+          title: form.title.trim(),
+          due: form.due,
+          owner: form.owner.trim() || userName,
+          recurrence: form.recurrence.trim() || "once",
+          priority: form.priority,
+          done: false,
+        },
+      ])
+    }
+    setForm(EMPTY_FORM)
+    setEditingId(null)
     setShowAdd(false)
   }
 
@@ -128,13 +190,42 @@ export default function DeadlinesPage() {
         priority: (a.effort === "High" ? "High" : a.effort === "Med" ? "Med" : "Low") as Deadline["priority"],
         done: false,
       }))
-    if (fresh.length > 0) persist([...deadlines, ...fresh])
+    if (fresh.length > 0) {
+      persist([...deadlines, ...fresh])
+      flash(`${fresh.length} deadline(s) generated from your plan.`)
+    } else {
+      flash("Nothing new — your plan actions already have deadlines.")
+    }
   }
 
-  const toggleDone = (id: number) =>
-    persist(deadlines.map((d) => (d.id === id ? { ...d, done: !d.done } : d)))
+  const toggleDone = (id: number) => {
+    const target = deadlines.find((d) => d.id === id)
+    if (!target) return
+    if (!target.done && target.recurrence !== "once") {
+      // Recurring item: complete this cycle and spawn the locked renewal
+      const renewal: Deadline = {
+        id: Date.now(),
+        title: target.title,
+        due: advance(target.due, target.recurrence),
+        owner: target.owner,
+        recurrence: target.recurrence,
+        priority: target.priority,
+        done: false,
+        locked: true,
+        renewedFrom: target.id,
+      }
+      persist(deadlines.map((d) => (d.id === id ? { ...d, done: true } : d)).concat(renewal))
+      flash(`Done. Next ${target.recurrence} cycle created for ${new Date(renewal.due + "T00:00:00").toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" })} — renewals can't be deleted, only rescheduled.`)
+    } else {
+      persist(deadlines.map((d) => (d.id === id ? { ...d, done: !d.done } : d)))
+    }
+  }
 
-  const remove = (id: number) => persist(deadlines.filter((d) => d.id !== id))
+  const remove = (id: number) => {
+    const target = deadlines.find((d) => d.id === id)
+    if (target?.locked) return
+    persist(deadlines.filter((d) => d.id !== id))
+  }
 
   const active = deadlines.filter((d) => !d.done)
   const urgent = active.filter((d) => daysLeft(d.due) <= 7)
@@ -166,29 +257,45 @@ export default function DeadlinesPage() {
                   <Sparkles className="mr-2 h-4 w-4" />
                   Generate from my plan
                 </Button>
-                <Button onClick={() => { setDue(isoPlus(PRIORITY_DAYS[priority])); setShowAdd(!showAdd) }}>
+                <Button onClick={openAdd}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add deadline
                 </Button>
               </div>
             </div>
 
-            {/* Add form */}
+            {notice && (
+              <div className="p-3 bg-status-infoBg rounded-lg text-sm text-brand-navy">
+                {notice}
+              </div>
+            )}
+
+            {/* Add / Edit form */}
             {showAdd && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Add a deadline</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">
+                    {editingId !== null ? "Edit deadline" : "Add a deadline"}
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Close"
+                    onClick={() => { setShowAdd(false); setEditingId(null) }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAdd}>
+                  <form onSubmit={handleSubmit}>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="dl-title">Title</Label>
                         <Input
                           id="dl-title"
                           placeholder="e.g. NDPC Filing"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
+                          value={form.title}
+                          onChange={(e) => setForm({ ...form, title: e.target.value })}
                           required
                         />
                       </div>
@@ -196,11 +303,10 @@ export default function DeadlinesPage() {
                         <Label htmlFor="dl-priority">Priority (sets a suggested date)</Label>
                         <select
                           id="dl-priority"
-                          value={priority}
+                          value={form.priority}
                           onChange={(e) => {
                             const p = e.target.value as Deadline["priority"]
-                            setPriority(p)
-                            setDue(isoPlus(PRIORITY_DAYS[p]))
+                            setForm({ ...form, priority: p, due: editingId !== null ? form.due : isoPlus(PRIORITY_DAYS[p]) })
                           }}
                           className="flex h-10 w-full rounded-lg border border-border bg-white px-4 text-sm text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
                         >
@@ -210,12 +316,12 @@ export default function DeadlinesPage() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="dl-due">Due date (adjust freely)</Label>
+                        <Label htmlFor="dl-due">Due date (extend or bring forward freely)</Label>
                         <Input
                           id="dl-due"
                           type="date"
-                          value={due}
-                          onChange={(e) => setDue(e.target.value)}
+                          value={form.due}
+                          onChange={(e) => setForm({ ...form, due: e.target.value })}
                           required
                         />
                       </div>
@@ -224,23 +330,32 @@ export default function DeadlinesPage() {
                         <Input
                           id="dl-owner"
                           placeholder={userName}
-                          value={owner}
-                          onChange={(e) => setOwner(e.target.value)}
+                          value={form.owner}
+                          onChange={(e) => setForm({ ...form, owner: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2 sm:col-span-2">
                         <Label htmlFor="dl-rec">Recurrence</Label>
-                        <Input
+                        <select
                           id="dl-rec"
-                          placeholder="e.g. once, yearly, quarterly"
-                          value={recurrence}
-                          onChange={(e) => setRecurrence(e.target.value)}
-                        />
+                          value={form.recurrence}
+                          onChange={(e) => setForm({ ...form, recurrence: e.target.value })}
+                          className="flex h-10 w-full rounded-lg border border-border bg-white px-4 text-sm text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+                        >
+                          {RECURRENCES.map((r) => (
+                            <option key={r} value={r}>
+                              {r[0].toUpperCase() + r.slice(1)}
+                              {r !== "once" ? " — auto-renews on completion" : ""}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-4">
-                      <Button type="submit">Add deadline</Button>
-                      <Button variant="ghost" type="button" onClick={() => setShowAdd(false)}>
+                      <Button type="submit">
+                        {editingId !== null ? "Save changes" : "Add deadline"}
+                      </Button>
+                      <Button variant="ghost" type="button" onClick={() => { setShowAdd(false); setEditingId(null) }}>
                         Cancel
                       </Button>
                     </div>
@@ -255,7 +370,7 @@ export default function DeadlinesPage() {
                 <AlertTriangle className="h-5 w-5 text-status-critTx flex-shrink-0" />
                 <p className="text-sm text-status-critTx">
                   <strong>Action needed:</strong> {urgent.length} deadline(s)
-                  due within 7 days.
+                  due within 7 days. Open an item to extend it if you need more time.
                 </p>
               </div>
             )}
@@ -316,15 +431,20 @@ export default function DeadlinesPage() {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={cn("font-medium text-sm", deadline.done ? "text-gray-400 line-through" : "text-brand-navy")}>
+                        <p className={cn("font-medium text-sm flex items-center gap-1.5", deadline.done ? "text-gray-400 line-through" : "text-brand-navy")}>
                           {deadline.title}
+                          {deadline.locked && (
+                            <span title="Auto-created renewal — reschedule it, but it can't be deleted">
+                              <Lock className="h-3 w-3 text-gray-400" />
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           Owner: {deadline.owner} • {deadline.priority} priority • Recurs: {deadline.recurrence}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="text-right">
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="text-right mr-2">
                           <p className="text-xs text-gray-500">
                             {new Date(deadline.due + "T00:00:00").toLocaleDateString("en-NG", {
                               month: "short",
@@ -350,19 +470,35 @@ export default function DeadlinesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label="Edit deadline"
+                          onClick={() => openEdit(deadline)}
+                        >
+                          <Pencil className="h-4 w-4 text-gray-400" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           aria-label={deadline.done ? "Reopen deadline" : "Mark deadline done"}
                           onClick={() => toggleDone(deadline.id)}
                         >
                           <CheckCircle2 className={cn("h-4 w-4", deadline.done ? "text-brand-teal" : "text-gray-400")} />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Delete deadline"
-                          onClick={() => remove(deadline.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-gray-400 hover:text-status-critTx" />
-                        </Button>
+                        {!deadline.locked ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Delete deadline"
+                            onClick={() => remove(deadline.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-gray-400 hover:text-status-critTx" />
+                          </Button>
+                        ) : (
+                          <span title="Auto-created renewal — it can't be deleted, only rescheduled">
+                            <Button variant="ghost" size="sm" disabled aria-label="Locked renewal">
+                              <Lock className="h-4 w-4 text-gray-300" />
+                            </Button>
+                          </span>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

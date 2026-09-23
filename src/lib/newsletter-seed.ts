@@ -9,6 +9,13 @@ export interface NewsletterSeed {
 // from the admin dashboard; these seed the library on first setup.
 export const NEWSLETTER_SEED: NewsletterSeed[] = [
   {
+    title: "Lagos releases 2026 Cybersecurity Guidelines: what every business must know",
+    summary:
+      "Lagos State's April 2026 guidelines (MIST, via the State Cybersecurity Advisory Council) set practical expectations for SMEs and enterprises: MFA, segmented networks, quarterly awareness training, tested backups and 72-hour incident reporting. Guidance, not law — but the clearest diligence signal for Lagos businesses.",
+    url: "https://guardian.ng/news/lagos-to-strengthen-digital-safety-with-cybersecurity-guidelines/",
+    segment: "All",
+  },
+  {
     title: "NDPC probes CAC data breach, signals tighter enforcement",
     summary:
       "The NDPC invoked Section 46(3) of the NDPA to investigate a reported breach of the Corporate Affairs Commission database — reviewing access controls, DPIAs and third-party processors. Lesson for SMBs: the regulator now audits your controls, not just your paperwork.",

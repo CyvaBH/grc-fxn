@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { dbPool, ensureAppTables, newId } from "@/lib/tickets-db"
+import { dbPool, ensureAppTables, ensureTicketTables, newId } from "@/lib/tickets-db"
 
 interface FeedItem {
   title: string
@@ -66,6 +66,7 @@ export async function GET(req: Request) {
   const failed: string[] = []
   try {
     await ensureAppTables(db)
+    await ensureTicketTables(db)
     for (const feed of FEEDS) {
       try {
         const res = await fetch(feed.url, {
@@ -93,8 +94,23 @@ export async function GET(req: Request) {
         ORDER BY "publishedAt" DESC OFFSET 40
       )`
     )
+    // Evidence privacy: expire uploaded files after 180 days, keep written summaries
+    const ev = await db.query(
+      `UPDATE "action_evidence" SET attachment = NULL
+       WHERE attachment IS NOT NULL AND "createdAt" < now() - interval '180 days'`
+    )
+    const tm = await db.query(
+      `UPDATE "ticket_message" SET image = NULL
+       WHERE image IS NOT NULL AND "createdAt" < now() - interval '180 days'`
+    )
     await db.end()
-    return NextResponse.json({ ok: true, imported: imported.length, titles: imported.slice(0, 10), failed })
+    return NextResponse.json({
+      ok: true,
+      imported: imported.length,
+      titles: imported.slice(0, 10),
+      failed,
+      expiredAttachments: (ev.rowCount || 0) + (tm.rowCount || 0),
+    })
   } catch (error) {
     await db.end()
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })

@@ -113,6 +113,10 @@ export function EvidenceModal({
               </Button>
             )}
             <p className="text-[11px] text-gray-400">Photos and screenshots are compressed. Videos/PDFs must be under 4MB.</p>
+            <p className="text-[11px] text-gray-500 bg-brand-mist rounded-lg p-2 leading-relaxed">
+              Protect your customers: never upload raw personal data (names, IDs, card numbers) —
+              describe it or redact it first. Files auto-delete after 180 days; your written summary is kept as the record.
+            </p>
           </div>
           {error && <p className="text-xs text-status-critTx">{error}</p>}
           <Button className="w-full" onClick={handleSave} disabled={saving}>

@@ -31,7 +31,7 @@ import {
 import { DATA_TYPES } from "@/lib/data-types"
 import { cn } from "@/lib/utils"
 
-const regulations = [
+const BASE_REGULATIONS = [
   {
     name: "Nigeria Data Protection Act (NDPA) 2023",
     applies: true,
@@ -66,6 +66,31 @@ const regulations = [
     obligations: [],
   },
 ]
+
+const LAGOS_REGULATION = {
+  name: "Lagos State Cybersecurity Guidelines 2026",
+  applies: true,
+  confidence: "high",
+  why: "You operate in Lagos. The state's 2026 guidelines (MIST, via the State Cybersecurity Advisory Council) translate national policy — NDPA 2023, Cybercrime Act 2024 — into practical expectations for every Lagos business. They are guidance, not a separate law, but following them is the clearest way to show diligence in Lagos.",
+  citations: ["LASG Guidelines 2026", "MIST"],
+  obligations: [
+    "Run the state's cybersecurity self-assessment for your size (SME or enterprise track)",
+    "Enforce MFA and password managers for all staff",
+    "Separate guest Wi-Fi from business networks",
+    "Run staff awareness training quarterly",
+    "Keep automated, encrypted data backups",
+    "Report incidents within 72 hours",
+  ],
+  links: [
+    { label: "Official guidelines (lagosstate.gov.ng)", url: "https://lagosstate.gov.ng/cybersecguide" },
+    { label: "Guardian: Lagos releases guidelines (Apr 2026)", url: "https://guardian.ng/news/lagos-to-strengthen-digital-safety-with-cybersecurity-guidelines/" },
+  ],
+}
+
+function buildRegulations(states: string) {
+  const isLagos = states.toLowerCase().includes("lagos")
+  return isLagos ? [...BASE_REGULATIONS, LAGOS_REGULATION] : BASE_REGULATIONS
+}
 
 const frameworks = [
   {
@@ -110,6 +135,8 @@ export default function ProfilePage() {
     healthData: profile.healthData,
     enterpriseClients: profile.enterpriseClients,
   })
+  const regs = buildRegulations(profile.states)
+  const appliesCount = regs.filter((r) => r.applies).length
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
@@ -210,9 +237,9 @@ export default function ProfilePage() {
                       : "Every point below was earned with evidence you submitted. Keep going."}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <Badge variant="applies">2 regulations apply</Badge>
+                    <Badge variant="applies">{appliesCount} regulation{appliesCount === 1 ? "" : "s"} apply</Badge>
                     <Badge variant="likely">1 framework recommended</Badge>
-                    <Badge variant="notapplies">1 does not apply</Badge>
+                    <Badge variant="notapplies">{regs.length - appliesCount} do{regs.length - appliesCount === 1 ? "es" : ""} not apply</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -262,7 +289,7 @@ export default function ProfilePage() {
               </TabsList>
 
               <TabsContent value="regulations" className="space-y-4 mt-4">
-                {regulations.map((reg) => (
+                {buildRegulations(profile.states).map((reg) => (
                   <Card
                     key={reg.name}
                     className={
@@ -307,6 +334,21 @@ export default function ProfilePage() {
                             >
                               {cite}
                             </span>
+                          ))}
+                        </div>
+                      )}
+                      {"links" in reg && Array.isArray((reg as { links?: { label: string; url: string }[] }).links) && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {((reg as { links: { label: string; url: string }[] }).links).map((l) => (
+                            <a
+                              key={l.url}
+                              href={l.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-brand-teal font-medium hover:underline"
+                            >
+                              {l.label} ↗
+                            </a>
                           ))}
                         </div>
                       )}

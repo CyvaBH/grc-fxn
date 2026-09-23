@@ -404,7 +404,7 @@ export default function AdminPage() {
                 <TabsTrigger value="tickets">
                   Tickets{stats && stats.openTickets > 0 ? ` (${stats.openTickets})` : ""}
                 </TabsTrigger>
-                <TabsTrigger value="newsletter">Newsletter</TabsTrigger>
+                <TabsTrigger value="newsletter">Briefing</TabsTrigger>
                 <TabsTrigger value="announce">Announcements</TabsTrigger>
                 <TabsTrigger value="training">Training</TabsTrigger>
                 <TabsTrigger value="admins">Admins</TabsTrigger>

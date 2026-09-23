@@ -29,7 +29,7 @@ function doc(title: string, sections: [string, string][]): string {
     ``,
     ...sections.flatMap(([h, b]) => [`## ${h}`, ``, b, ``]),
     `---`,
-    `Guidance only — not legal advice. Confirm with licensed counsel before filing.`,
+    `Practical compliance guidance — confirm filings with licensed counsel or your DPCO.`,
   ].join("\n")
 }
 

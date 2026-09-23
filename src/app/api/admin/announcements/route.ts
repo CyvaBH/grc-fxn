@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
           <h2 style="color:#0F2A44;margin:0 0 12px;">${title.replace(/</g, "&lt;")}</h2>
           <p style="color:#334155;line-height:1.6;white-space:pre-wrap;">${text.replace(/</g, "&lt;")}</p>
-          <p style="color:#94A3B8;font-size:12px;margin-top:24px;">Cyber Trust Nest update. Guidance only — not legal advice.</p>
+          <p style="color:#94A3B8;font-size:12px;margin-top:24px;">Cyber Trust Nest update. Practical guidance — confirm filings with licensed counsel or your DPCO.</p>
         </div>`
         for (const r of rows as { email: string }[]) {
           try {

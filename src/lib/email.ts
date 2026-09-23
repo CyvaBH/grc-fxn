@@ -58,7 +58,7 @@ export function buildOTPHtml(otp: string, type: SendOTPEmailParams["type"]): str
           <tr>
             <td style="padding:20px 40px;background-color:#F4F6F8;border-top:1px solid #E2E8F0;">
               <p style="margin:0;color:#5B6B7F;font-size:12px;text-align:center;">
-                Guidance only — not legal advice. Confirm with licensed counsel before filing.
+                Practical compliance guidance — confirm filings with licensed counsel or your DPCO.
               </p>
             </td>
           </tr>

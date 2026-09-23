@@ -23,7 +23,7 @@ import { authClient } from "@/lib/auth-client"
 
 const menuItems = [
   { href: "/trainings", label: "Staff Training", icon: GraduationCap, desc: "Phishing awareness & security basics" },
-  { href: "/newsletter", label: "Newsletter", icon: Mail, desc: "Monthly compliance updates" },
+  { href: "/newsletter", label: "GRC Briefing", icon: Mail, desc: "Real compliance news, auto-updated" },
   { href: "/policies", label: "Policy Library", icon: FileCheck, desc: "15 ready-to-customize templates" },
   { href: "/deadlines", label: "Deadline Tracker", icon: CalendarClock, desc: "Never miss a renewal" },
   { href: "/profile", label: "Compliance Profile", icon: ShieldCheck, desc: "Your regulations & action plan" },

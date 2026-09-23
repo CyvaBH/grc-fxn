@@ -91,7 +91,7 @@ export function PublicFooter() {
               </span>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Your virtual GRC officer for Nigerian SMBs. Guidance only — not legal advice.
+              Your virtual GRC officer for Nigerian SMBs. Practical guidance — confirm filings with licensed counsel or your DPCO.
             </p>
           </div>
           <div>
@@ -120,7 +120,7 @@ export function PublicFooter() {
           </div>
         </div>
         <p className="text-xs text-gray-400 text-center border-t border-border pt-6">
-          Guidance only — not legal advice. Confirm with licensed counsel before filing.
+          Practical compliance guidance — confirm filings with licensed counsel or your DPCO.
         </p>
       </div>
     </footer>

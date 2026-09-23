@@ -32,6 +32,7 @@ function isBigTeam(sizeBand: string): boolean {
  * human-readable reason so the list is explainable, not generic.
  */
 export function tailorPolicies(p: TailorProfile): TailoredPolicy[] {
+  const { states } = p
   const industry = p.industry || ""
   const ctx = (p.context || "").toLowerCase()
   const isFintech = /fintech|financial|bank|payment|insurance/i.test(industry) || p.handlesPayments
@@ -100,6 +101,19 @@ export function tailorPolicies(p: TailorProfile): TailoredPolicy[] {
   }
   if (mentions("branch", "office", "shop", "store", "premises")) {
     req("physical-security", "Your context mentions physical premises — office and device rules are required.")
+  }
+
+  const isLagos = states.toLowerCase().includes("lagos")
+  const lagosNote: Record<string, string> = {
+    "access-control": " Also explicitly expected by the Lagos State Cybersecurity Guidelines 2026 (MFA enforcement).",
+    "training-awareness": " The Lagos guidelines expect staff awareness training quarterly.",
+    "network-cloud": " The Lagos guidelines call out segmented networks and tested backups.",
+    "incident-response": " The Lagos guidelines align to 72-hour incident reporting.",
+  }
+  if (isLagos) {
+    for (const [id, note] of Object.entries(lagosNote)) {
+      if (required.has(id)) required.set(id, (required.get(id) || "") + note)
+    }
   }
 
   const byId = new Map(POLICY_TEMPLATES.map((t) => [t.id, t]))

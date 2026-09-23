@@ -22,7 +22,7 @@ const navItems = [
   { href: "/policies", label: "Policies", icon: ShieldCheck },
   { href: "/deadlines", label: "Deadlines", icon: CalendarClock },
   { href: "/trainings", label: "Trainings", icon: GraduationCap },
-  { href: "/newsletter", label: "Newsletter", icon: Mail },
+  { href: "/newsletter", label: "Briefing", icon: Mail },
   { href: "/support", label: "Support", icon: LifeBuoy },
 ]
 
