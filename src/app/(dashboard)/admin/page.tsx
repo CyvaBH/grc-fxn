@@ -92,6 +92,21 @@ interface TrainingRequest {
   createdAt: string
 }
 
+interface ServiceRequest {
+  id: string
+  userId: string
+  email: string
+  service: string
+  policy: string
+  name: string
+  org: string
+  timeline: string
+  currentState: string
+  details: string
+  status: string
+  createdAt: string
+}
+
 interface PasswordAdmin {
   userId: string
   email: string
@@ -162,6 +177,9 @@ export default function AdminPage() {
   // Training requests
   const [training, setTraining] = useState<TrainingRequest[]>([])
   const [trainingLoading, setTrainingLoading] = useState(false)
+  // Service requests
+  const [services, setServices] = useState<ServiceRequest[]>([])
+  const [servicesLoading, setServicesLoading] = useState(false)
   // Admins
   const [envAdmins, setEnvAdmins] = useState<string[]>([])
   const [pwAdmins, setPwAdmins] = useState<PasswordAdmin[]>([])
@@ -259,14 +277,33 @@ export default function AdminPage() {
     setDetailLoading(false)
   }
 
+  const loadServices = useCallback(async () => {
+    setServicesLoading(true)
+    try {
+      const res = await fetch("/api/admin/service-requests?status=all")
+      if (res.ok) setServices((await res.json()).requests || [])
+    } catch {}
+    setServicesLoading(false)
+  }, [])
+
+  const setServiceStatus = async (id: string, status: string) => {
+    await fetch("/api/admin/service-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    })
+    loadServices()
+  }
+
   useEffect(() => {
     if (allowed) {
       loadUsers("")
       loadTickets("open")
       loadTraining()
+      loadServices()
       loadAdmins()
     }
-  }, [allowed, loadUsers, loadTickets, loadTraining, loadAdmins])
+  }, [allowed, loadUsers, loadTickets, loadTraining, loadServices, loadAdmins])
 
   const publishNewsletter = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -490,6 +527,11 @@ export default function AdminPage() {
                 {(meRole === "super" || meRole === "content") && <TabsTrigger value="newsletter">Briefing</TabsTrigger>}
                 {(meRole === "super" || meRole === "content") && <TabsTrigger value="announce">Announcements</TabsTrigger>}
                 {(meRole === "super" || meRole === "support") && <TabsTrigger value="training">Training</TabsTrigger>}
+                {(meRole === "super" || meRole === "support") && (
+                  <TabsTrigger value="services">
+                    Services{services.filter((s) => s.status === "pending").length > 0 ? ` (${services.filter((s) => s.status === "pending").length})` : ""}
+                  </TabsTrigger>
+                )}
                 {meRole === "super" && <TabsTrigger value="admins">Admins</TabsTrigger>}
               </TabsList>
 
@@ -894,6 +936,47 @@ export default function AdminPage() {
                             {r.status === "done" && (
                               <Button size="sm" variant="ghost" onClick={() => setTrainingStatus(r.id, "pending")}>Reopen</Button>
                             )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* SERVICE REQUESTS */}
+              <TabsContent value="services" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Service requests</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {servicesLoading ? (
+                      <p className="text-sm text-gray-500">Loading…</p>
+                    ) : services.length === 0 ? (
+                      <p className="text-sm text-gray-500">No service requests yet.</p>
+                    ) : (
+                      services.map((r) => (
+                        <div key={r.id} className="p-3 rounded-lg bg-brand-mist text-sm">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="font-medium text-brand-navy">
+                              {r.service}{r.policy ? ` — ${r.policy}` : ""}
+                            </p>
+                            <Badge variant={r.status === "done" ? "default" : r.status === "pending" ? "destructive" : "likely"} className="text-[10px]">
+                              {r.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {r.name} • {r.email}{r.org ? ` • ${r.org}` : ""} • {r.timeline}
+                            {r.currentState ? ` • ${r.currentState}` : ""}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap leading-relaxed">{r.details}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {["pending", "quoted", "approved", "done"].filter((s) => s !== r.status).map((s) => (
+                              <Button key={s} size="sm" variant="outline" onClick={() => setServiceStatus(r.id, s)}>
+                                Mark {s}
+                              </Button>
+                            ))}
                           </div>
                         </div>
                       ))

@@ -14,6 +14,7 @@ import {
   Settings,
   LifeBuoy,
   Lock,
+  Briefcase,
 } from "lucide-react"
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/deadlines", label: "Deadlines", icon: CalendarClock },
   { href: "/trainings", label: "Trainings", icon: GraduationCap },
   { href: "/newsletter", label: "Briefing", icon: Mail },
+  { href: "/services", label: "Services", icon: Briefcase },
   { href: "/support", label: "Support", icon: LifeBuoy },
 ]
 

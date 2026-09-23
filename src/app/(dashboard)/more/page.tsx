@@ -18,6 +18,7 @@ import {
   Loader2,
   LifeBuoy,
   Lock,
+  Briefcase,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 
@@ -28,6 +29,7 @@ const menuItems = [
   { href: "/deadlines", label: "Deadline Tracker", icon: CalendarClock, desc: "Never miss a renewal" },
   { href: "/profile", label: "Compliance Profile", icon: ShieldCheck, desc: "Your regulations & action plan" },
   { href: "/support", label: "Support", icon: LifeBuoy, desc: "Get help from our team" },
+  { href: "/services", label: "Services", icon: Briefcase, desc: "Expert help — request a quote" },
   { href: "/settings", label: "Settings", icon: Settings, desc: "Account & billing" },
 ]
 

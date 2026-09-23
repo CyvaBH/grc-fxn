@@ -38,7 +38,7 @@ export default function ServicesPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href={`/support?service=${s.id}`}>
+                <Link href={`/service-request?service=${s.id}`}>
                   <Button>
                     Request this service
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -49,7 +49,7 @@ export default function ServicesPage() {
           ))}
         </div>
         <p className="text-center text-sm text-gray-400 mt-10">
-          Requesting opens a service ticket — we reply with scope and quote. No payment now.
+          Requesting opens a dedicated service request (separate from support tickets) — we reply with scope and quote. No payment now.
         </p>
       </section>
       <PublicFooter />

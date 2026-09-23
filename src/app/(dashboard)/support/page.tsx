@@ -30,7 +30,6 @@ const CATEGORIES = [
   "Bug report",
   "Billing",
   "Feature request",
-  "Service request",
   "Other",
 ]
 
@@ -104,27 +103,7 @@ export default function SupportPage() {
     loadTickets()
   }, [loadTickets])
 
-  // Prefill from service CTAs: /support?service=policy-drafting&policy=data-protection
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      const service = params.get("service")
-      if (!service) return
-      import("@/lib/services").then(({ serviceById }) => {
-        const s = serviceById(service)
-        if (!s) return
-        const policy = params.get("policy")
-        setSubject(`Service request: ${s.name}${policy ? ` (${policy})` : ""}`)
-        setCategory("Service request")
-        setMessage(
-          `I'd like help with: ${s.name}\n\nDetails about my needs:\n\nPreferred timeline:\n\nPreferred contact (if different from account email):`
-        )
-        setShowNew(true)
-        // Clean the URL so refresh doesn't re-prefill
-        window.history.replaceState({}, "", "/support")
-      })
-    } catch {}
-  }, [])
+
 
   const openTicket = async (id: string) => {
     setOpenId(id)

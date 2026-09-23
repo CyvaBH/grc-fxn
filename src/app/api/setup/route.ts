@@ -104,6 +104,21 @@ export async function GET() {
         "segment" text NOT NULL DEFAULT 'All',
         "publishedAt" timestamp NOT NULL DEFAULT now()
       )`,
+      `CREATE TABLE IF NOT EXISTS "service_request" (
+        "id" text PRIMARY KEY,
+        "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+        "email" text NOT NULL DEFAULT '',
+        "service" text NOT NULL DEFAULT '',
+        "policy" text NOT NULL DEFAULT '',
+        "name" text NOT NULL DEFAULT '',
+        "org" text NOT NULL DEFAULT '',
+        "timeline" text NOT NULL DEFAULT '',
+        "currentState" text NOT NULL DEFAULT '',
+        "details" text NOT NULL DEFAULT '',
+        "status" text NOT NULL DEFAULT 'pending',
+        "createdAt" timestamp NOT NULL DEFAULT now(),
+        "updatedAt" timestamp NOT NULL DEFAULT now()
+      )`,
       `CREATE TABLE IF NOT EXISTS "training_request" (
         "id" text PRIMARY KEY,
         "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -168,7 +183,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      message: "Tables created + migrated: user, session, account, verification, organization_profile, support_ticket, ticket_message, action_evidence, notification, newsletter, training_request",
+      message: "Tables created + migrated: user, session, account, verification, organization_profile, support_ticket, ticket_message, action_evidence, notification, newsletter, training_request, service_request",
     })
   } catch (error) {
     await pool.end()

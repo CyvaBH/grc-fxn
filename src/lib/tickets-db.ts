@@ -61,6 +61,21 @@ export const APP_TABLES = [
     "segment" text NOT NULL DEFAULT 'All',
     "publishedAt" timestamp NOT NULL DEFAULT now()
   )`,
+  `CREATE TABLE IF NOT EXISTS "service_request" (
+    "id" text PRIMARY KEY,
+    "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+    "email" text NOT NULL DEFAULT '',
+    "service" text NOT NULL DEFAULT '',
+    "policy" text NOT NULL DEFAULT '',
+    "name" text NOT NULL DEFAULT '',
+    "org" text NOT NULL DEFAULT '',
+    "timeline" text NOT NULL DEFAULT '',
+    "currentState" text NOT NULL DEFAULT '',
+    "details" text NOT NULL DEFAULT '',
+    "status" text NOT NULL DEFAULT 'pending',
+    "createdAt" timestamp NOT NULL DEFAULT now(),
+    "updatedAt" timestamp NOT NULL DEFAULT now()
+  )`,
   `CREATE TABLE IF NOT EXISTS "training_request" (
     "id" text PRIMARY KEY,
     "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,

@@ -87,7 +87,7 @@ export default function PoliciesPage() {
                     audit-ready policy for you.
                   </p>
                 </div>
-                <Link href="/services?service=policy-drafting" className="flex-shrink-0">
+                <Link href="/service-request?service=policy-drafting" className="flex-shrink-0">
                   <Button variant="default" className="bg-brand-teal hover:bg-brand-tealDark">
                     <PenLine className="mr-2 h-4 w-4" />
                     Invite our team
@@ -136,7 +136,7 @@ export default function PoliciesPage() {
                               <Stethoscope className="mr-1 h-3 w-3" />
                               Check my policy
                             </Button>
-                            <Link href={`/services?service=policy-drafting&policy=${policy.id}`}>
+                            <Link href={`/service-request?service=policy-drafting&policy=${policy.id}`}>
                               <Button size="sm">
                                 Invite our team
                                 <ArrowRight className="ml-1 h-3 w-3" />

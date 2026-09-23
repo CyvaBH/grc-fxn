@@ -8,7 +8,6 @@ export const TICKET_CATEGORIES = [
   "Bug report",
   "Billing",
   "Feature request",
-  "Service request",
   "Other",
 ]
 
