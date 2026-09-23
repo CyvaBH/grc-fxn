@@ -39,8 +39,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Action and evidence description are required" }, { status: 400 })
   }
   const attachment =
-    typeof body.attachment === "string" && body.attachment.startsWith("data:image/")
-      ? body.attachment.slice(0, 1500000)
+    typeof body.attachment === "string" &&
+    (body.attachment.startsWith("data:image/") ||
+      body.attachment.startsWith("data:video/") ||
+      body.attachment.startsWith("data:application/pdf"))
+      ? body.attachment.slice(0, 5500000)
       : null
 
   const db = dbPool()

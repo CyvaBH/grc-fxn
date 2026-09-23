@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { DATA_TYPES } from "@/lib/data-types"
 import { StateSelector, statesArray } from "@/components/state-selector"
 import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
+import { useSession } from "@/lib/auth-client"
 
 const industries = [
   "Fintech / Financial Services",
@@ -50,6 +51,7 @@ interface ProfilerData {
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { data: session } = useSession()
   const [step, setStep] = useState(0)
   const [industryLocked, setIndustryLocked] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -163,9 +165,28 @@ export default function OnboardingPage() {
             <ShieldCheck className="h-6 w-6 text-brand-teal" />
             <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
           </div>
-          <span className="text-sm text-gray-500">
-            Step {step + 1} of {totalSteps}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 hidden sm:inline">
+              Step {step + 1} of {totalSteps}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                saveLocalProfile({ ...data })
+                try {
+                  await fetch("/api/profile", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                  })
+                } catch {}
+                router.push(session ? "/dashboard" : "/")
+              }}
+            >
+              Save & exit
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -214,7 +235,7 @@ export default function OnboardingPage() {
                 </h2>
                 <p className="text-gray-500 mt-1">
                   This determines which regulations and policies apply. You choose
-                  once — it locks after your profile is generated.
+                  once — it locks permanently and cannot be changed afterwards.
                 </p>
               </div>
               {industryLocked ? (
@@ -223,7 +244,7 @@ export default function OnboardingPage() {
                   <div>
                     <p className="font-medium text-brand-navy text-sm">{data.industry}</p>
                     <p className="text-xs text-gray-500">
-                      Locked after your first profile. Contact support if it must change.
+                      Locked permanently. It cannot be changed.
                     </p>
                   </div>
                 </div>
@@ -353,8 +374,9 @@ export default function OnboardingPage() {
                 </h2>
                 <p className="text-gray-500 mt-1">
                   Like ISO 27001 Clause 4 and the NDPA require: what you do, who you
-                  serve, who you depend on (vendors, cloud, remote staff), and where
-                  data flows. At least a few sentences — this tailors your policy list.
+                  serve, your staff (onsite, hybrid, remote, contractors), who you
+                  depend on (vendors, cloud), and where data flows. At least a few
+                  sentences — this tailors your policy list.
                 </p>
               </div>
               <div className="space-y-2">
@@ -364,7 +386,7 @@ export default function OnboardingPage() {
                   rows={7}
                   value={data.context}
                   onChange={(e) => setData((prev) => ({ ...prev, context: e.target.value }))}
-                  placeholder={"Example: We are a 25-person Lagos fintech offering mobile savings wallets. Customer data lives in AWS and a Postgres database managed by our 4-person engineering team. We use Paystack for processing, 10 staff work remotely on personal laptops, and we share KYC data with two verification vendors."}
+                  placeholder={"Example: We are a 25-person Lagos fintech offering mobile savings wallets. Our team is mixed: 15 onsite in Ikeja, 10 hybrid, plus 3 contractors. Customer data lives in AWS and a Postgres database managed by our 4-person engineering team. We use Paystack for processing and share KYC data with two verification vendors."}
                 />
                 <p className={cn("text-xs", data.context.trim().length >= 30 ? "text-brand-teal" : "text-gray-400")}>
                   {data.context.trim().length}/30 characters minimum
@@ -374,7 +396,7 @@ export default function OnboardingPage() {
                 <Badge variant="secondary">What you do</Badge>
                 <Badge variant="secondary">Who you serve</Badge>
                 <Badge variant="secondary">Vendors & cloud</Badge>
-                <Badge variant="secondary">Remote staff</Badge>
+                <Badge variant="secondary">Staff & roles</Badge>
                 <Badge variant="secondary">Where data flows</Badge>
               </div>
             </div>

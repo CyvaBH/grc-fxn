@@ -75,6 +75,7 @@ export const APP_TABLES = [
     "updatedAt" timestamp NOT NULL DEFAULT now()
   )`,
   // Schema evolutions for tables that may already exist
+  `ALTER TABLE "newsletter" ADD COLUMN IF NOT EXISTS "source" text NOT NULL DEFAULT 'manual'`,
   `ALTER TABLE "ticket_message" ADD COLUMN IF NOT EXISTS "image" text`,
   `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "context" text NOT NULL DEFAULT ''`,
   `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "newsletterOptOut" boolean NOT NULL DEFAULT false`,

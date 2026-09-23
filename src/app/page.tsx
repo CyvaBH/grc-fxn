@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { PublicHeader, PublicFooter } from "@/components/public-nav"
 import {
   ShieldCheck,
   FileCheck,
@@ -15,25 +16,7 @@ import {
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-7 w-7 text-brand-teal" />
-            <span className="text-lg font-bold text-brand-navy">Cyber Trust Nest</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm">Get started free</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Hero */}
       <section className="px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
@@ -294,29 +277,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-brand-teal" />
-            <span className="text-sm font-semibold text-brand-navy">
-              Cyber Trust Nest
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 text-center">
-            Guidance only — not legal advice. Confirm with licensed counsel
-            before filing.
-          </p>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <Link href="/privacy" className="hover:text-brand-navy">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-brand-navy">
-              Terms
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

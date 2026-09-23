@@ -17,6 +17,7 @@ interface Article {
   url: string
   segment: string
   publishedAt: string
+  source?: string
 }
 
 export default function NewsletterPage() {
@@ -64,6 +65,9 @@ export default function NewsletterPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Badge variant="secondary">{nl.segment}</Badge>
+                            {nl.source === "auto" && (
+                              <Badge variant="default" className="text-[10px]">Auto-updated</Badge>
+                            )}
                             <span className="text-xs text-gray-500 flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               {new Date(nl.publishedAt).toLocaleDateString("en-NG", {

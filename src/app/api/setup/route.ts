@@ -117,9 +117,9 @@ export async function GET() {
         "createdAt" timestamp NOT NULL DEFAULT now(),
         "updatedAt" timestamp NOT NULL DEFAULT now()
       )`,
-      `ALTER TABLE "ticket_message" ADD COLUMN IF NOT EXISTS "image" text`,
       `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "context" text NOT NULL DEFAULT ''`,
       `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "newsletterOptOut" boolean NOT NULL DEFAULT false`,
+      `ALTER TABLE "newsletter" ADD COLUMN IF NOT EXISTS "source" text NOT NULL DEFAULT 'manual'`,
       `CREATE TABLE IF NOT EXISTS "verification" (
         "id" text PRIMARY KEY,
         "identifier" text NOT NULL,

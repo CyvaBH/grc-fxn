@@ -92,6 +92,9 @@ export function tailorPolicies(p: TailorProfile): TailoredPolicy[] {
   if (mentions("remote", "work from home", "hybrid", "personal phone", "byod")) {
     req("byod", "Your context mentions remote/personal devices — put the rules in writing.")
   }
+  if (mentions("contractor", "volunteer", "intern", "outsource")) {
+    req("hr-onboarding", "Your context mentions contractors, volunteers or interns — formalize their onboarding and exit checks.")
+  }
   if (mentions("cloud", "aws", "azure", "hosting", "server")) {
     req("network-cloud", "Your context mentions cloud/hosting — a documented baseline is required.")
   }

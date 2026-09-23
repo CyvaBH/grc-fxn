@@ -4,13 +4,14 @@ import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { X, Loader2, ImagePlus, CheckCircle2 } from "lucide-react"
-import { fileToImageDataUrl } from "@/lib/profile-store"
+import { X, Loader2, Upload, CheckCircle2 } from "lucide-react"
+import { EVIDENCE_ACCEPT, fileToEvidenceDataUrl } from "@/lib/profile-store"
+import { AttachmentView } from "@/components/attachment-view"
 import type { ReadinessAction } from "@/lib/readiness"
 
 /**
  * Evidence gate: an action can only be marked complete with a written
- * description of what was done, plus an optional photo/screenshot.
+ * description of what was done, plus an optional image, video or PDF.
  */
 export function EvidenceModal({
   action,
@@ -34,9 +35,9 @@ export function EvidenceModal({
     if (!file) return
     setError("")
     try {
-      setAttachment(await fileToImageDataUrl(file, 1024))
-    } catch {
-      setError("Could not read that image. Try a JPG or PNG.")
+      setAttachment(await fileToEvidenceDataUrl(file))
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 
@@ -90,28 +91,28 @@ export function EvidenceModal({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Photo / screenshot (optional)</Label>
+            <Label>Upload evidence (image, video or PDF)</Label>
             <input
               ref={fileRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept={EVIDENCE_ACCEPT}
               className="hidden"
               onChange={pickFile}
             />
             {attachment ? (
               <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={attachment} alt="Evidence" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                <AttachmentView src={attachment} compact />
                 <button onClick={() => setAttachment(null)} className="text-xs text-gray-500 hover:text-status-critTx">
                   Remove
                 </button>
               </div>
             ) : (
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                <ImagePlus className="mr-2 h-4 w-4" />
-                Attach image
+                <Upload className="mr-2 h-4 w-4" />
+                Upload evidence
               </Button>
             )}
+            <p className="text-[11px] text-gray-400">Photos and screenshots are compressed. Videos/PDFs must be under 4MB.</p>
           </div>
           {error && <p className="text-xs text-status-critTx">{error}</p>}
           <Button className="w-full" onClick={handleSave} disabled={saving}>

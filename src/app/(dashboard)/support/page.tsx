@@ -20,7 +20,8 @@ import {
   ImagePlus,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
-import { useOrgProfile, fileToImageDataUrl } from "@/lib/profile-store"
+import { useOrgProfile, EVIDENCE_ACCEPT, fileToEvidenceDataUrl } from "@/lib/profile-store"
+import { AttachmentView } from "@/components/attachment-view"
 import { cn } from "@/lib/utils"
 
 const CATEGORIES = [
@@ -29,6 +30,7 @@ const CATEGORIES = [
   "Bug report",
   "Billing",
   "Feature request",
+  "Service request",
   "Other",
 ]
 
@@ -81,9 +83,9 @@ export default function SupportPage() {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      set(await fileToImageDataUrl(file, 1024))
-    } catch {
-      setError("Could not read that image. Try a JPG or PNG.")
+      set(await fileToEvidenceDataUrl(file))
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 
@@ -101,6 +103,28 @@ export default function SupportPage() {
   useEffect(() => {
     loadTickets()
   }, [loadTickets])
+
+  // Prefill from service CTAs: /support?service=policy-drafting&policy=data-protection
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const service = params.get("service")
+      if (!service) return
+      import("@/lib/services").then(({ serviceById }) => {
+        const s = serviceById(service)
+        if (!s) return
+        const policy = params.get("policy")
+        setSubject(`Service request: ${s.name}${policy ? ` (${policy})` : ""}`)
+        setCategory("Service request")
+        setMessage(
+          `I'd like help with: ${s.name}\n\nDetails about my needs:\n\nPreferred timeline:\n\nPreferred contact (if different from account email):`
+        )
+        setShowNew(true)
+        // Clean the URL so refresh doesn't re-prefill
+        window.history.replaceState({}, "", "/support")
+      })
+    } catch {}
+  }, [])
 
   const openTicket = async (id: string) => {
     setOpenId(id)
@@ -240,18 +264,17 @@ export default function SupportPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Screenshot (optional)</Label>
+                      <Label>Attachment — image, video or PDF (optional)</Label>
                       <input
                         ref={fileRef}
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept={EVIDENCE_ACCEPT}
                         className="hidden"
                         onChange={(e) => pickImage(e, setAttach)}
                       />
                       {attach ? (
                         <div className="flex items-center gap-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={attach} alt="Attachment" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                          <AttachmentView src={attach} compact />
                           <button type="button" onClick={() => setAttach(null)} className="text-xs text-gray-500 hover:text-status-critTx">
                             Remove
                           </button>
@@ -259,7 +282,7 @@ export default function SupportPage() {
                       ) : (
                         <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
                           <ImagePlus className="mr-2 h-4 w-4" />
-                          Attach screenshot
+                          Attach file
                         </Button>
                       )}
                     </div>
@@ -322,12 +345,7 @@ export default function SupportPage() {
                             })}
                           </p>
                           <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
-                          {m.image && (
-                            <a href={m.image} target="_blank" rel="noopener noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={m.image} alt="Attachment" className="mt-2 max-h-48 rounded-lg border border-border/30 object-cover" />
-                            </a>
-                          )}
+                          {m.image && <AttachmentView src={m.image} />}
                         </div>
                       ))
                     )}
@@ -335,8 +353,7 @@ export default function SupportPage() {
                       <div className="pt-2 space-y-2">
                         {replyAttach && (
                           <div className="flex items-center gap-3">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={replyAttach} alt="Attachment" className="h-14 w-14 rounded-lg object-cover border border-border" />
+                            <AttachmentView src={replyAttach} compact />
                             <button type="button" onClick={() => setReplyAttach(null)} className="text-xs text-gray-500 hover:text-status-critTx">
                               Remove
                             </button>
@@ -346,7 +363,7 @@ export default function SupportPage() {
                           <input
                             ref={replyFileRef}
                             type="file"
-                            accept="image/png,image/jpeg,image/webp"
+                            accept={EVIDENCE_ACCEPT}
                             className="hidden"
                             onChange={(e) => pickImage(e, setReplyAttach)}
                           />

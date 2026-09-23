@@ -274,11 +274,7 @@ export default function SettingsPage() {
                       <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
                     <p className="text-xs text-gray-400">
-                      Chosen once during setup — it drives your entire profile.{" "}
-                      <Link href="/support" className="text-brand-teal hover:underline">
-                        Contact support
-                      </Link>{" "}
-                      if it must change.
+                      Chosen once during setup — it drives your entire profile and cannot be changed.
                     </p>
                   </div>
                   <div className="space-y-2">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AttachmentView } from "@/components/attachment-view"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -651,12 +652,7 @@ export default function AdminPage() {
                                 })}
                               </p>
                               <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
-                              {m.image && (
-                                <a href={m.image} target="_blank" rel="noopener noreferrer">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={m.image} alt="Attachment" className="mt-2 max-h-48 rounded-lg border border-border/30 object-cover" />
-                                </a>
-                              )}
+                              {m.image && <AttachmentView src={m.image} />}
                             </div>
                           ))}
                           <form onSubmit={handleReply} className="flex gap-2 pt-2">

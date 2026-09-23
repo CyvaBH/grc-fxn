@@ -91,6 +91,36 @@ export function fileToAvatarDataUrl(file: File): Promise<string> {
   return fileToImageDataUrl(file, 128)
 }
 
+export const EVIDENCE_ACCEPT = "image/*,video/*,application/pdf"
+const MAX_RAW_BYTES = 4 * 1024 * 1024 // 4MB for video/PDF passthrough
+
+/** Read any file as a data-URL without transforming it. */
+export function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("Could not read file"))
+    reader.onload = () => resolve(reader.result as string)
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Evidence upload: images are downscaled, video/PDF pass through if under 4MB.
+ * Throws a user-friendly message for anything else.
+ */
+export async function fileToEvidenceDataUrl(file: File): Promise<string> {
+  if (file.type.startsWith("image/")) {
+    return fileToImageDataUrl(file, 1024)
+  }
+  if (file.type.startsWith("video/") || file.type === "application/pdf") {
+    if (file.size > MAX_RAW_BYTES) {
+      throw new Error("That file is over 4MB. Compress it or split it and try again.")
+    }
+    return readFileAsDataUrl(file)
+  }
+  throw new Error("Only images, videos and PDFs are accepted as evidence.")
+}
+
 /** Reactive profile backed by localStorage, merged with the server copy when signed in. */
 export function useOrgProfile() {
   const [profile, setProfile] = useState<OrgProfile>(EMPTY_PROFILE)

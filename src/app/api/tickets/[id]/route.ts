@@ -45,8 +45,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const message = (body.message || "").trim().slice(0, 5000)
   if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 })
   const image =
-    typeof body.image === "string" && body.image.startsWith("data:image/")
-      ? body.image.slice(0, 1500000)
+    typeof body.image === "string" &&
+    (body.image.startsWith("data:image/") ||
+      body.image.startsWith("data:video/") ||
+      body.image.startsWith("data:application/pdf"))
+      ? body.image.slice(0, 5500000)
       : null
 
   const admin = isAdminEmail(user.email)

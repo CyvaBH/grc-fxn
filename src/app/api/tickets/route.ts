@@ -8,6 +8,7 @@ export const TICKET_CATEGORIES = [
   "Bug report",
   "Billing",
   "Feature request",
+  "Service request",
   "Other",
 ]
 
@@ -51,8 +52,11 @@ export async function POST(req: Request) {
   const subject = (body.subject || "").trim().slice(0, 200)
   const message = (body.message || "").trim().slice(0, 5000)
   const image =
-    typeof body.image === "string" && body.image.startsWith("data:image/")
-      ? body.image.slice(0, 1500000)
+    typeof body.image === "string" &&
+    (body.image.startsWith("data:image/") ||
+      body.image.startsWith("data:video/") ||
+      body.image.startsWith("data:application/pdf"))
+      ? body.image.slice(0, 5500000)
       : null
   const category = TICKET_CATEGORIES.includes(body.category || "")
     ? (body.category as string)

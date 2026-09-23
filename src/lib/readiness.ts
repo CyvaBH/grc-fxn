@@ -129,8 +129,8 @@ export const ACTIONS: ReadinessAction[] = [
     points: 8,
     effort: "Med",
     priority: 3,
-    howTo: "Open the Data Protection & Privacy Policy in your Policy Library, fill in your organisation details, download it, and share it with staff.",
-    evidencePrompt: "Confirm the policy is customized, downloaded and shared (e.g. 'shared on Slack 12 Oct').",
+    howTo: "Run the policy health-check on your Data Protection Policy in the Policy Library (paste the text, fix missing points to 70%+), or invite our team to draft it via Services.",
+    evidencePrompt: "Health-check result (coverage %) or drafting request reference, plus where the policy is shared.",
   },
   {
     id: "staff-training",
@@ -149,8 +149,8 @@ export const ACTIONS: ReadinessAction[] = [
     points: 6,
     effort: "Med",
     priority: 5,
-    howTo: "Open the Incident Response Plan template, fill in your reporting contact and incident lead, download it, and make sure every staff member knows where to report.",
-    evidencePrompt: "Confirm the plan is customized and staff know the reporting channel.",
+    howTo: "Run the policy health-check on your Incident Response Plan in the Policy Library (paste the text, fix missing points to 70%+), then tell every staff member the single reporting channel.",
+    evidencePrompt: "Health-check result plus confirmation staff know where to report.",
   },
   {
     id: "access-policy",
@@ -159,8 +159,8 @@ export const ACTIONS: ReadinessAction[] = [
     points: 6,
     effort: "Low",
     priority: 6,
-    howTo: "Fill the Access Control & Password Policy template, enforce the 12-character + manager rule, and remove ex-staff access the same day.",
-    evidencePrompt: "Confirm the policy is customized and leavers' access was reviewed.",
+    howTo: "Run the policy health-check on your Access Control Policy in the Policy Library, enforce the 12-character + manager rule, and remove ex-staff access the same day.",
+    evidencePrompt: "Health-check result plus confirmation leavers' access was reviewed.",
   },
   {
     id: "ndpc-register",
