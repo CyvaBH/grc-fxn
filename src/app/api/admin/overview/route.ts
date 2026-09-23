@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/admin"
+import { requireRole } from "@/lib/admin"
 import { dbPool, ensureTicketTables } from "@/lib/tickets-db"
 import { CREATE_PROFILE_TABLE } from "@/app/api/profile/route"
 
 // GET /api/admin/overview — stat cards, signup chart data, recent activity
 export async function GET(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super")
   if ("error" in gate) return gate.error
 
   const db = dbPool()

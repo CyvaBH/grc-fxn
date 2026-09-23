@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/admin"
+import { requireRole } from "@/lib/admin"
 import { dbPool, ensureAppTables, newId } from "@/lib/tickets-db"
 import { sendBrevoEmail } from "@/lib/email"
 
 // POST /api/admin/announcements — { title, body, sendEmail? }
 // In-app notification for all users, optionally emailed to everyone.
 export async function POST(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super", "content")
   if ("error" in gate) return gate.error
 
   const body = (await req.json().catch(() => ({}))) as {

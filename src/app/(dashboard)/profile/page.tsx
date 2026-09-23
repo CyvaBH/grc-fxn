@@ -159,10 +159,17 @@ export default function ProfilePage() {
                   {orgName} • Generated Sep 12, 2026 • Ruleset v0.1
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="mr-2 h-4 w-4" />
-                Export PDF
-              </Button>
+              <div className="flex gap-2 flex-shrink-0">
+                <Link href="/onboarding">
+                  <Button size="sm" className="font-bold">
+                    Re-take profiler
+                  </Button>
+                </Link>
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
             </div>
 
             {/* General — your answers, editable */}

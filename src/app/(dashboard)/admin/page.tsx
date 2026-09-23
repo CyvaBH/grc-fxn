@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Trash2,
+  X,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { useOrgProfile } from "@/lib/profile-store"
@@ -94,13 +96,40 @@ interface PasswordAdmin {
   userId: string
   email: string
   name: string
+  firstName: string
+  lastName: string
+  role: string
+  mustChangePassword: boolean
+  hasPassword: boolean
+  totpEnrolled: boolean
   createdAt: string
 }
 
+interface UserDetail {
+  user: { id: string; name: string; email: string; emailVerified: boolean; hasAvatar: boolean; createdAt: string }
+  profile: {
+    displayName: string; orgName: string; industry: string; sizeBand: string; states: string
+    dataTypes: string[]; handlesPayments: boolean; healthData: boolean; hasWebsite: boolean
+    enterpriseClients: boolean; context: string; newsletterOptOut: boolean
+    createdAt: string; updatedAt: string
+  } | null
+  evidence: { id: string; actionId: string; title: string; evidence: string; hasAttachment: boolean; createdAt: string }[]
+  tickets: { id: string; subject: string; category: string; status: string; messageCount: string; createdAt: string; updatedAt: string }[]
+  training: { id: string; kind: string; topic: string; preferredDate: string; teamSize: string; status: string; createdAt: string }[]
+  sessions: { total: number; lastSeen: string | null }
+  adminRole: string | null
+}
+
 export default function AdminPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const { profile } = useOrgProfile()
   const [allowed, setAllowed] = useState<boolean | null>(null)
+  const [meRole, setMeRole] = useState<string>("super")
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<UserDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [tab, setTab] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [daily, setDaily] = useState<DayCount[]>([])
   const [recentUsers, setRecentUsers] = useState<AdminUser[]>([])
@@ -136,18 +165,34 @@ export default function AdminPage() {
   // Admins
   const [envAdmins, setEnvAdmins] = useState<string[]>([])
   const [pwAdmins, setPwAdmins] = useState<PasswordAdmin[]>([])
+  const [newAdminFirst, setNewAdminFirst] = useState("")
+  const [newAdminLast, setNewAdminLast] = useState("")
   const [newAdminEmail, setNewAdminEmail] = useState("")
+  const [newAdminRole, setNewAdminRole] = useState("support")
   const [newAdminPw, setNewAdminPw] = useState("")
   const [adminBusy, setAdminBusy] = useState(false)
   const [adminResult, setAdminResult] = useState("")
+  const [editingAdmin, setEditingAdmin] = useState<string | null>(null)
+  const [editFirst, setEditFirst] = useState("")
+  const [editLast, setEditLast] = useState("")
+  const [editRole, setEditRole] = useState("support")
 
-  // Gate: only admins may view (APIs enforce this too)
+  // Gate: only admins may view (APIs enforce this too).
+  // Pending first-time security (password change / 2FA) redirects away.
   useEffect(() => {
     fetch("/api/admin/me")
       .then((r) => r.json())
-      .then((d) => setAllowed(d.isAdmin === true))
+      .then((d) => {
+        setAllowed(d.isAdmin === true)
+        if (d.isAdmin === true) {
+          setMeRole(d.role || "super")
+          if (d.mustChangePassword === true || d.totpEnrolled === false) {
+            router.replace("/admin-security")
+          }
+        }
+      })
       .catch(() => setAllowed(false))
-  }, [])
+  }, [router])
 
   const loadOverview = useCallback(async () => {
     try {
@@ -202,6 +247,17 @@ export default function AdminPage() {
       }
     } catch {}
   }, [])
+
+  const openUserDetail = async (id: string) => {
+    setDetailId(id)
+    setDetail(null)
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/${id}`)
+      if (res.ok) setDetail(await res.json())
+    } catch {}
+    setDetailLoading(false)
+  }
 
   useEffect(() => {
     if (allowed) {
@@ -274,11 +330,19 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newAdminEmail, password: newAdminPw }),
+        body: JSON.stringify({
+          email: newAdminEmail,
+          firstName: newAdminFirst,
+          lastName: newAdminLast,
+          role: newAdminRole,
+          password: newAdminPw,
+        }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || "Could not add admin")
-      setAdminResult(`${newAdminEmail} can now sign in at /admin-login with a password.`)
+      setAdminResult(`${newAdminEmail} added as ${newAdminRole}. They sign in at /admin-login, then must change the password and set up 2FA.`)
+      setNewAdminFirst("")
+      setNewAdminLast("")
       setNewAdminEmail("")
       setNewAdminPw("")
       loadAdmins()
@@ -286,6 +350,18 @@ export default function AdminPage() {
       setAdminResult((err as Error).message)
     } finally {
       setAdminBusy(false)
+    }
+  }
+
+  const saveAdminEdit = async (userId: string) => {
+    const res = await fetch("/api/admin/admins", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, firstName: editFirst, lastName: editLast, role: editRole }),
+    })
+    if (res.ok) {
+      setEditingAdmin(null)
+      loadAdmins()
     }
   }
 
@@ -399,17 +475,22 @@ export default function AdminPage() {
               <p className="text-gray-500 mt-1">Users, signups, and support tickets.</p>
             </div>
 
-            <Tabs defaultValue="overview">
+            <Tabs
+              value={tab || (meRole === "super" ? "overview" : meRole === "support" ? "users" : "newsletter")}
+              onValueChange={setTab}
+            >
               <TabsList className="flex-wrap h-auto">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="users">Users</TabsTrigger>
-                <TabsTrigger value="tickets">
-                  Tickets{stats && stats.openTickets > 0 ? ` (${stats.openTickets})` : ""}
-                </TabsTrigger>
-                <TabsTrigger value="newsletter">Briefing</TabsTrigger>
-                <TabsTrigger value="announce">Announcements</TabsTrigger>
-                <TabsTrigger value="training">Training</TabsTrigger>
-                <TabsTrigger value="admins">Admins</TabsTrigger>
+                {meRole === "super" && <TabsTrigger value="overview">Overview</TabsTrigger>}
+                {(meRole === "super" || meRole === "support") && <TabsTrigger value="users">Users</TabsTrigger>}
+                {(meRole === "super" || meRole === "support") && (
+                  <TabsTrigger value="tickets">
+                    Tickets{stats && stats.openTickets > 0 ? ` (${stats.openTickets})` : ""}
+                  </TabsTrigger>
+                )}
+                {(meRole === "super" || meRole === "content") && <TabsTrigger value="newsletter">Briefing</TabsTrigger>}
+                {(meRole === "super" || meRole === "content") && <TabsTrigger value="announce">Announcements</TabsTrigger>}
+                {(meRole === "super" || meRole === "support") && <TabsTrigger value="training">Training</TabsTrigger>}
+                {meRole === "super" && <TabsTrigger value="admins">Admins</TabsTrigger>}
               </TabsList>
 
               {/* OVERVIEW */}
@@ -531,7 +612,11 @@ export default function AdminPage() {
                       <p className="text-sm text-gray-500 p-4">No users found.</p>
                     ) : (
                       users.map((u) => (
-                        <div key={u.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-brand-mist">
+                        <div
+                          key={u.id}
+                          onClick={() => openUserDetail(u.id)}
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-brand-mist cursor-pointer"
+                        >
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-brand-navy text-sm truncate">
                               {u.name || "—"}{" "}
@@ -554,7 +639,7 @@ export default function AdminPage() {
                             </p>
                           </div>
                           {confirmDelete === u.id ? (
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                               <Button
                                 size="sm"
                                 variant="destructive"
@@ -576,7 +661,7 @@ export default function AdminPage() {
                               size="sm"
                               variant="ghost"
                               className="text-gray-400 hover:text-status-critTx flex-shrink-0"
-                              onClick={() => setConfirmDelete(u.id)}
+                              onClick={(e) => { e.stopPropagation(); setConfirmDelete(u.id) }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -823,51 +908,252 @@ export default function AdminPage() {
                   <CardHeader>
                     <CardTitle className="text-base">Administrators</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">ALWAYS ADMIN (ENV LIST)</p>
+                      <p className="text-xs font-medium text-gray-500 mb-1">SUPER ADMIN (ENV, ALWAYS ON)</p>
                       {envAdmins.map((e) => (
-                        <p key={e} className="text-sm text-brand-navy">• {e}</p>
+                        <p key={e} className="text-sm text-brand-navy">• {e} <Badge variant="default" className="text-[10px] ml-1">super</Badge></p>
                       ))}
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">PASSWORD ADMINS</p>
+                      <p className="text-xs font-medium text-gray-500 mb-2">
+                        MANAGED ADMINS — roles: <strong>super</strong> (everything), <strong>support</strong> (users + tickets + training), <strong>content</strong> (briefing + announcements)
+                      </p>
                       {pwAdmins.length === 0 ? (
                         <p className="text-sm text-gray-500">None yet — add the first below.</p>
                       ) : (
-                        pwAdmins.map((a) => (
-                          <div key={a.userId} className="flex items-center justify-between p-2 rounded-lg hover:bg-brand-mist text-sm">
-                            <span className="text-brand-navy">{a.email}</span>
-                            <button onClick={() => removePasswordAdmin(a.userId)} className="text-xs text-status-critTx hover:underline">
-                              Remove password access
-                            </button>
-                          </div>
-                        ))
+                        <div className="space-y-2">
+                          {pwAdmins.map((a) => (
+                            <div key={a.userId} className="p-3 rounded-lg bg-brand-mist text-sm">
+                              {editingAdmin === a.userId ? (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input value={editFirst} onChange={(e) => setEditFirst(e.target.value)} placeholder="First name" />
+                                    <Input value={editLast} onChange={(e) => setEditLast(e.target.value)} placeholder="Last name" />
+                                  </div>
+                                  <select
+                                    value={editRole}
+                                    onChange={(e) => setEditRole(e.target.value)}
+                                    className="flex h-9 w-full rounded-lg border border-border bg-white px-3 text-sm text-brand-navy"
+                                  >
+                                    <option value="super">super — everything</option>
+                                    <option value="support">support — users, tickets, training</option>
+                                    <option value="content">content — briefing, announcements</option>
+                                  </select>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => saveAdminEdit(a.userId)}>Save</Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingAdmin(null)}>Cancel</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-brand-navy truncate">
+                                      {a.firstName || a.lastName ? `${a.firstName} ${a.lastName}`.trim() : a.name || a.email}
+                                    </p>
+                                    <p className="text-xs text-gray-500 truncate">{a.email}</p>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      <Badge variant={a.role === "super" ? "default" : "secondary"} className="text-[10px]">{a.role}</Badge>
+                                      {!a.hasPassword && <Badge variant="destructive" className="text-[10px]">no password</Badge>}
+                                      {a.mustChangePassword && <Badge variant="likely" className="text-[10px]">must change pw</Badge>}
+                                      <Badge variant={a.totpEnrolled ? "applies" : "secondary"} className="text-[10px]">
+                                        {a.totpEnrolled ? "2FA on" : "no 2FA"}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-1 flex-shrink-0">
+                                    <button
+                                      onClick={() => { setEditingAdmin(a.userId); setEditFirst(a.firstName); setEditLast(a.lastName); setEditRole(a.role) }}
+                                      className="text-xs text-brand-teal hover:underline"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button onClick={() => removePasswordAdmin(a.userId)} className="text-xs text-status-critTx hover:underline">
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <form onSubmit={addAdmin} className="space-y-3 pt-2 border-t border-border">
-                      <p className="text-xs font-medium text-gray-500">ADD / RESET PASSWORD ADMIN</p>
+                    <form onSubmit={addAdmin} className="space-y-3 pt-3 border-t border-border">
+                      <p className="text-xs font-medium text-gray-500">ADD ADMIN (FORCED PW CHANGE + 2FA ON FIRST SIGN-IN)</p>
                       <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="adm-first">First name</Label>
+                          <Input id="adm-first" value={newAdminFirst} onChange={(e) => setNewAdminFirst(e.target.value)} required />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="adm-last">Last name</Label>
+                          <Input id="adm-last" value={newAdminLast} onChange={(e) => setNewAdminLast(e.target.value)} required />
+                        </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="adm-email">Email</Label>
                           <Input id="adm-email" type="email" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} required />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="adm-pw">Password (min 8 chars)</Label>
+                          <Label htmlFor="adm-role">Access level</Label>
+                          <select
+                            id="adm-role"
+                            value={newAdminRole}
+                            onChange={(e) => setNewAdminRole(e.target.value)}
+                            className="flex h-10 w-full rounded-lg border border-border bg-white px-4 text-sm text-brand-navy"
+                          >
+                            <option value="support">support — users, tickets, training</option>
+                            <option value="content">content — briefing, announcements</option>
+                            <option value="super">super — everything</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label htmlFor="adm-pw">Temporary password (min 8 chars — they must change it)</Label>
                           <Input id="adm-pw" type="password" value={newAdminPw} onChange={(e) => setNewAdminPw(e.target.value)} required minLength={8} />
                         </div>
                       </div>
                       {adminResult && <p className="text-xs text-brand-navy bg-brand-mist rounded-lg p-3">{adminResult}</p>}
                       <Button type="submit" size="sm" disabled={adminBusy}>
                         {adminBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save admin
+                        Add admin
                       </Button>
-                      <p className="text-xs text-gray-400">They sign in at /admin-login with email + password.</p>
                     </form>
                   </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* USER DETAIL MODAL */}
+            {detailId && (
+              <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-brand-navy/50 p-0 sm:p-6">
+                <div className="bg-white w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+                  <div className="sticky top-0 bg-white border-b border-border px-5 py-4 flex items-center justify-between">
+                    <h2 className="font-bold text-brand-navy text-sm">User detail</h2>
+                    <Button variant="ghost" size="icon" onClick={() => { setDetailId(null); setDetail(null) }} aria-label="Close">
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  <div className="p-5 space-y-5">
+                    {detailLoading ? (
+                      <p className="text-sm text-gray-500">Loading everything about this user…</p>
+                    ) : !detail ? (
+                      <p className="text-sm text-status-critTx">Could not load user.</p>
+                    ) : (
+                      <>
+                        <section>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Account</p>
+                          <div className="bg-brand-mist rounded-lg p-3 text-sm space-y-1">
+                            <p className="font-semibold text-brand-navy">{detail.user.name || "—"}</p>
+                            <p className="text-gray-600">{detail.user.email}</p>
+                            <p className="text-xs text-gray-500">
+                              Joined {new Date(detail.user.createdAt).toLocaleString("en-NG")} •
+                              Email {detail.user.emailVerified ? "verified" : "not verified"} •
+                              {detail.sessions.total} session(s)
+                              {detail.sessions.lastSeen ? ` • last seen ${new Date(detail.sessions.lastSeen).toLocaleString("en-NG")}` : ""}
+                              {detail.adminRole ? ` • admin (${detail.adminRole})` : ""}
+                            </p>
+                          </div>
+                        </section>
+                        <section>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Compliance profile</p>
+                          {!detail.profile ? (
+                            <p className="text-sm text-gray-500">No profiler answers yet.</p>
+                          ) : (
+                            <div className="bg-brand-mist rounded-lg p-3 text-sm space-y-1.5">
+                              {[
+                                ["Display name", detail.profile.displayName],
+                                ["Organization", detail.profile.orgName],
+                                ["Industry", detail.profile.industry],
+                                ["Team size", detail.profile.sizeBand],
+                                ["Operating states", detail.profile.states],
+                                ["Data types", detail.profile.dataTypes.join(", ")],
+                                ["Handles payments", detail.profile.handlesPayments ? "Yes" : "No"],
+                                ["Health data", detail.profile.healthData ? "Yes" : "No"],
+                                ["Has website/app", detail.profile.hasWebsite ? "Yes" : "No"],
+                                ["Enterprise clients", detail.profile.enterpriseClients ? "Yes" : "No"],
+                                ["Briefing emails", detail.profile.newsletterOptOut ? "Opted out" : "Subscribed"],
+                              ].map(([k, v]) => (
+                                <p key={k} className="text-gray-600">
+                                  <span className="text-gray-400">{k}: </span>
+                                  <span className="text-brand-navy font-medium break-words">{v || "—"}</span>
+                                </p>
+                              ))}
+                              {detail.profile.context && (
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Context: </span>
+                                  <span className="text-brand-navy">{detail.profile.context}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </section>
+                        <section>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                            Evidence ({detail.evidence.length})
+                          </p>
+                          {detail.evidence.length === 0 ? (
+                            <p className="text-sm text-gray-500">No evidence submitted — score is 0.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {detail.evidence.map((e) => (
+                                <div key={e.id} className="bg-brand-mist rounded-lg p-3 text-sm">
+                                  <p className="font-medium text-brand-navy">{e.title || e.actionId} {e.hasAttachment && "📎"}</p>
+                                  <p className="text-gray-600 text-xs mt-0.5 whitespace-pre-wrap">{e.evidence}</p>
+                                  <p className="text-[11px] text-gray-400 mt-1">
+                                    {new Date(e.createdAt).toLocaleString("en-NG")}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+                        <section>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                            Support tickets ({detail.tickets.length})
+                          </p>
+                          {detail.tickets.length === 0 ? (
+                            <p className="text-sm text-gray-500">No tickets.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {detail.tickets.map((t) => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => { setDetailId(null); setDetail(null); setOpenId(t.id); setTab("tickets") }}
+                                  className="w-full text-left bg-brand-mist rounded-lg p-3 text-sm hover:bg-gray-200/70"
+                                >
+                                  <p className="font-medium text-brand-navy">{t.subject}</p>
+                                  <p className="text-xs text-gray-500">{t.category} • {t.status} • {t.messageCount} message(s)</p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+                        <section>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                            Training requests ({detail.training.length})
+                          </p>
+                          {detail.training.length === 0 ? (
+                            <p className="text-sm text-gray-500">None.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {detail.training.map((t) => (
+                                <div key={t.id} className="bg-brand-mist rounded-lg p-3 text-sm">
+                                  <p className="font-medium text-brand-navy">{t.topic}</p>
+                                  <p className="text-xs text-gray-500">{t.kind} • {t.preferredDate} • {t.status}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </section>
+                        <p className="text-[11px] text-gray-400">
+                          Note: deadlines live on the user&apos;s device only and aren&apos;t visible here.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

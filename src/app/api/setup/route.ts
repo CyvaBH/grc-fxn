@@ -121,6 +121,26 @@ export async function GET() {
       `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "newsletterOptOut" boolean NOT NULL DEFAULT false`,
       `ALTER TABLE "newsletter" ADD COLUMN IF NOT EXISTS "source" text NOT NULL DEFAULT 'manual'`,
       `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "contextDetail" text NOT NULL DEFAULT ''`,
+      `CREATE TABLE IF NOT EXISTS "admin_profile" (
+        "userId" text PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
+        "firstName" text NOT NULL DEFAULT '',
+        "lastName" text NOT NULL DEFAULT '',
+        "role" text NOT NULL DEFAULT 'support',
+        "mustChangePassword" boolean NOT NULL DEFAULT false,
+        "createdAt" timestamp NOT NULL DEFAULT now()
+      )`,
+      `CREATE TABLE IF NOT EXISTS "twoFactor" (
+        "id" text PRIMARY KEY,
+        "secret" text NOT NULL,
+        "backupCodes" text NOT NULL,
+        "userId" text NOT NULL UNIQUE REFERENCES "user"("id") ON DELETE CASCADE,
+        "verified" boolean NOT NULL DEFAULT true,
+        "failedVerificationCount" integer NOT NULL DEFAULT 0,
+        "lockedUntil" timestamp,
+        "createdAt" timestamp NOT NULL DEFAULT now(),
+        "updatedAt" timestamp NOT NULL DEFAULT now()
+      )`,
+      `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" boolean NOT NULL DEFAULT false`,
       `CREATE TABLE IF NOT EXISTS "verification" (
         "id" text PRIMARY KEY,
         "identifier" text NOT NULL,

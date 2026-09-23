@@ -7,14 +7,18 @@ import { CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface ContextDetail {
+  /** What the organization does — focus and objectives (required, free text). */
+  about: string
   dataLive: string[]
   handlers: string[]
   thirdParties: string[]
   access: string[]
+  /** Anything else, in their own words (required). */
   notes: string
 }
 
 export const EMPTY_CONTEXT_DETAIL: ContextDetail = {
+  about: "",
   dataLive: [],
   handlers: [],
   thirdParties: [],
@@ -22,7 +26,12 @@ export const EMPTY_CONTEXT_DETAIL: ContextDetail = {
   notes: "",
 }
 
-const GROUPS: { key: keyof Omit<ContextDetail, "notes">; title: string; hint: string; options: string[] }[] = [
+export const ABOUT_MIN = 30
+export const NOTES_MIN = 20
+
+type ArrayKey = "dataLive" | "handlers" | "thirdParties" | "access"
+
+const GROUPS: { key: ArrayKey; title: string; hint: string; options: string[] }[] = [
   {
     key: "dataLive",
     title: "Where does customer and staff data live?",
@@ -78,32 +87,46 @@ const GROUPS: { key: keyof Omit<ContextDetail, "notes">; title: string; hint: st
 /** Compose the plain-language paragraph the tailoring engine reads. */
 export function composeContext(v: ContextDetail): string {
   const parts = [
+    `About the organization — focus and objectives: ${v.about.trim() || "—"}.`,
     `Customer and staff data lives in: ${v.dataLive.join("; ") || "—"}.`,
     `Day-to-day, data is handled by: ${v.handlers.join("; ") || "—"}.`,
     `Third parties with data access: ${v.thirdParties.join("; ") || "—"}.`,
     `Staff access work systems through: ${v.access.join("; ") || "—"}.`,
+    `Additional notes: ${v.notes.trim() || "—"}.`,
   ]
-  if (v.notes.trim()) parts.push(`Additional notes: ${v.notes.trim()}`)
   return parts.join(" ")
 }
 
 export function contextDetailComplete(v: ContextDetail): boolean {
-  return v.dataLive.length > 0 && v.handlers.length > 0 && v.thirdParties.length > 0 && v.access.length > 0
+  return (
+    v.about.trim().length >= ABOUT_MIN &&
+    v.dataLive.length > 0 &&
+    v.handlers.length > 0 &&
+    v.thirdParties.length > 0 &&
+    v.access.length > 0 &&
+    v.notes.trim().length >= NOTES_MIN
+  )
+}
+
+function strArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
 }
 
 export function parseContextDetail(json: string, fallbackNotes: string): ContextDetail {
   try {
-    const parsed = JSON.parse(json) as Partial<ContextDetail>
-    if (parsed && Array.isArray(parsed.dataLive)) {
+    const parsed = JSON.parse(json) as Record<string, unknown>
+    if (parsed && (Array.isArray(parsed.dataLive) || typeof parsed.about === "string")) {
       return {
-        dataLive: parsed.dataLive.filter((x) => typeof x === "string"),
-        handlers: (parsed.handlers || []).filter((x) => typeof x === "string"),
-        thirdParties: (parsed.thirdParties || []).filter((x) => typeof x === "string"),
-        access: (parsed.access || []).filter((x) => typeof x === "string"),
+        about: typeof parsed.about === "string" ? parsed.about : "",
+        dataLive: strArray(parsed.dataLive),
+        handlers: strArray(parsed.handlers),
+        thirdParties: strArray(parsed.thirdParties),
+        access: strArray(parsed.access),
         notes: typeof parsed.notes === "string" ? parsed.notes : "",
       }
     }
   } catch {}
+  // Legacy free-text context becomes the notes field so nothing is lost
   return { ...EMPTY_CONTEXT_DETAIL, notes: fallbackNotes || "" }
 }
 
@@ -115,7 +138,7 @@ export function ContextBuilder({
   value: ContextDetail
   onChange: (next: ContextDetail) => void
 }) {
-  const toggle = (key: keyof Omit<ContextDetail, "notes">, option: string) => {
+  const toggle = (key: ArrayKey, option: string) => {
     const current = value[key]
     onChange({
       ...value,
@@ -127,6 +150,22 @@ export function ContextBuilder({
 
   return (
     <div className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="ctx-about">
+          What does your organization do? Focus and objectives{" "}
+          <span className="text-gray-400 font-normal">(required)</span>
+        </Label>
+        <Textarea
+          id="ctx-about"
+          rows={4}
+          value={value.about}
+          onChange={(e) => onChange({ ...value, about: e.target.value })}
+          placeholder="E.g. We are a 25-person Lagos fintech helping market traders save daily via a mobile wallet. Our objective this year is 100,000 active savers while keeping customer funds and data safe."
+        />
+        <p className={value.about.trim().length >= ABOUT_MIN ? "text-xs text-brand-teal" : "text-xs text-gray-400"}>
+          {value.about.trim().length}/{ABOUT_MIN} characters minimum
+        </p>
+      </div>
       {GROUPS.map((g) => (
         <div key={g.key} className="space-y-2">
           <Label>
@@ -157,7 +196,7 @@ export function ContextBuilder({
       ))}
       <div className="space-y-2">
         <Label htmlFor="ctx-notes">
-          Anything else in your own words? <span className="text-gray-400 font-normal">(optional)</span>
+          Anything else in your own words? <span className="text-gray-400 font-normal">(required)</span>
         </Label>
         <Textarea
           id="ctx-notes"
@@ -166,6 +205,9 @@ export function ContextBuilder({
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
           placeholder="E.g. We share KYC data with two verification vendors; 3 contractors have database access; planning to launch in Ghana next year."
         />
+        <p className={value.notes.trim().length >= NOTES_MIN ? "text-xs text-brand-teal" : "text-xs text-gray-400"}>
+          {value.notes.trim().length}/{NOTES_MIN} characters minimum
+        </p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">What you do</Badge>

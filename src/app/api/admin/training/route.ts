@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/admin"
+import { requireRole } from "@/lib/admin"
 import { dbPool, ensureAppTables } from "@/lib/tickets-db"
 
 // GET /api/admin/training?status= — all training requests
 export async function GET(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super", "support")
   if ("error" in gate) return gate.error
   const status = new URL(req.url).searchParams.get("status") || "all"
 
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
 // PATCH /api/admin/training — { id, status: 'pending'|'approved'|'done' }
 export async function PATCH(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super", "support")
   if ("error" in gate) return gate.error
 
   const body = (await req.json().catch(() => ({}))) as { id?: string; status?: string }

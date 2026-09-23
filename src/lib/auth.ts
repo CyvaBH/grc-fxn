@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth"
-import { emailOTP } from "better-auth/plugins"
+import { emailOTP, twoFactor } from "better-auth/plugins"
 import { Pool } from "pg"
 import { sendOTPEmail } from "@/lib/email"
 
@@ -25,6 +25,10 @@ export const auth = betterAuth({
     minPasswordLength: 8,
   },
   plugins: [
+    // TOTP second factor for password admins (authenticator app + backup codes)
+    twoFactor({
+      issuer: "Cyber Trust Nest",
+    }),
     emailOTP({
       otpLength: 6,
       expiresIn: 600,

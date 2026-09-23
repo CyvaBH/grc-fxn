@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/admin"
+import { requireRole } from "@/lib/admin"
 import { dbPool } from "@/lib/tickets-db"
 import { CREATE_PROFILE_TABLE } from "@/app/api/profile/route"
 
 // GET /api/admin/users?q=&limit= — searchable user directory
 export async function GET(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super", "support")
   if ("error" in gate) return gate.error
 
   const q = new URL(req.url).searchParams.get("q")?.trim() || ""
@@ -41,12 +41,12 @@ export async function GET(req: Request) {
 // DELETE /api/admin/users?userId= — permanently delete a user and everything
 // attached (sessions, profile, tickets, evidence, training). Cannot delete self.
 export async function DELETE(req: Request) {
-  const gate = await requireAdmin(req)
+  const gate = await requireRole(req, "super")
   if ("error" in gate) return gate.error
 
   const userId = new URL(req.url).searchParams.get("userId")
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
-  if (userId === gate.user.id) {
+  if (userId === gate.admin.userId) {
     return NextResponse.json({ error: "You cannot delete your own admin account" }, { status: 400 })
   }
 
