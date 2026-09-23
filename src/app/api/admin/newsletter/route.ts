@@ -47,10 +47,9 @@ export async function POST(req: Request) {
       if (!process.env.BREVO_API_KEY) {
         emailError = "BREVO_API_KEY is not configured"
       } else {
-        const { rows: users } = await db.query(
-          `SELECT u.email FROM "user" u LEFT JOIN "organization_profile" p ON p."userId" = u.id
-           WHERE COALESCE(p."newsletterOptOut", false) = false`
-        )
+        const { subscribers } = await import("@/lib/notify")
+        const emails = await subscribers(db, "briefing")
+        const users = emails.map((email) => ({ email }))
         const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
           <p style="color:#0E9F6E;font-size:12px;font-weight:700;letter-spacing:1px;margin:0 0 8px;">CYBER TRUST NEST • GRC BRIEFING</p>
           <h2 style="color:#0F2A44;margin:0 0 12px;">${title.replace(/</g, "&lt;")}</h2>

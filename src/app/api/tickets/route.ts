@@ -79,6 +79,15 @@ export async function POST(req: Request) {
       [newId("msg"), ticketId, user.id, message, image]
     )
     const { rows } = await db.query(`SELECT * FROM "support_ticket" WHERE id = $1`, [ticketId])
+    // Alert admins (in-app + email per their prefs)
+    try {
+      const { alertAdmins } = await import("@/lib/notify")
+      await alertAdmins(db, "ticket_new", {
+        title: `New ticket: ${subject}`,
+        body: `${user.email} opened “${subject}” [${category}]: ${message.slice(0, 200)}`,
+        link: "/admin",
+      })
+    } catch {}
     await db.end()
     return NextResponse.json({ ticket: rows[0] })
   } catch (error) {

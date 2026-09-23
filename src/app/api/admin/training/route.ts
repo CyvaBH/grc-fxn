@@ -40,6 +40,20 @@ export async function PATCH(req: Request) {
       body.status,
       body.id,
     ])
+    try {
+      const { alertUser } = await import("@/lib/notify")
+      const { rows } = await db.query(
+        `SELECT "userId", email, topic, "preferredDate" FROM "training_request" WHERE id = $1`,
+        [body.id]
+      )
+      if (rows[0]) {
+        await alertUser(db, rows[0].userId as string, (rows[0].email as string) || null, "training", {
+          title: `Training ${body.status}: ${rows[0].topic}`,
+          body: `Your training request for ${rows[0].preferredDate || "your chosen date"} is now “${body.status}”.`,
+          link: "/trainings",
+        })
+      }
+    } catch {}
     await db.end()
     return NextResponse.json({ ok: true })
   } catch (error) {

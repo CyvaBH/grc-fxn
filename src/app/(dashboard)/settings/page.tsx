@@ -38,7 +38,36 @@ export default function SettingsPage() {
   const [states, setStates] = useState("")
   const [context, setContext] = useState("")
   const [ctxDetail, setCtxDetail] = useState<ContextDetail>(EMPTY_CONTEXT_DETAIL)
-  const [notif, setNotif] = useState({ deadlines: true, newsletter: true, trainings: false })
+  const [prefs, setPrefs] = useState<Record<string, Record<string, boolean>>>({})
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  const USER_GROUPS = [
+    { key: "ticket", label: "Support ticket updates", desc: "Replies and status changes on your tickets", channels: ["app", "email"] as const },
+    { key: "service", label: "Service request updates", desc: "Quote and status updates on your requests", channels: ["app", "email"] as const },
+    { key: "training", label: "Training updates", desc: "Confirmations and status of training requests", channels: ["app", "email"] as const },
+    { key: "briefing", label: "GRC briefing emails", desc: "Real compliance news, emailed when published", channels: ["email"] as const },
+    { key: "announcement", label: "Product announcements", desc: "New features and notices from our team", channels: ["app", "email"] as const },
+  ]
+  const ADMIN_GROUPS = [
+    { key: "ticket_new", label: "New tickets", desc: "A user opened a support ticket", channels: ["app", "email"] as const },
+    { key: "service_new", label: "New service requests", desc: "A user requested a service", channels: ["app", "email"] as const },
+    { key: "training_new", label: "New training requests", desc: "A user requested training", channels: ["app", "email"] as const },
+  ]
+
+  const prefOn = (event: string, channel: string): boolean =>
+    prefs[event]?.[channel] ?? true
+
+  const setToggle = async (event: string, channel: string, on: boolean) => {
+    setPrefs((prev) => ({ ...prev, [event]: { ...prev[event], [channel]: on } }))
+    try {
+      await fetch("/api/notifications/prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, channel, enabled: on }),
+      })
+    } catch {}
+  }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
@@ -60,7 +89,17 @@ export default function SettingsPage() {
     }
     setAvatar(local.avatar)
     setName(local.displayName)
-    setNotif((n) => ({ ...n, newsletter: !local.newsletterOptOut }))
+    fetch("/api/notifications/prefs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.prefs) setPrefs(d.prefs)
+        setPrefsLoaded(true)
+      })
+      .catch(() => setPrefsLoaded(true))
+    fetch("/api/admin/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setIsAdmin(d.isAdmin === true))
+      .catch(() => {})
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -77,10 +116,6 @@ export default function SettingsPage() {
           setSizeBand(p.sizeBand || "")
           setStates(p.states || "")
           setContext(p.context || "")
-          if (p.contextDetail || p.context) {
-            setCtxDetail(parseContextDetail(p.contextDetail || "", p.context || ""))
-          }
-          setNotif((n) => ({ ...n, newsletter: !p.newsletterOptOut }))
           if (p.displayName && !data.user?.name) setName(p.displayName)
         }
       })
@@ -117,7 +152,6 @@ export default function SettingsPage() {
       states,
       context: composed,
       contextDetail: JSON.stringify(ctxDetail),
-      newsletterOptOut: !notif.newsletter,
       avatar,
     }
     saveLocalProfile({ ...patch, industry })
@@ -170,20 +204,11 @@ export default function SettingsPage() {
     }
   }
 
-  const toggleNotif = (key: keyof typeof notif) =>
-    setNotif((prev) => {
-      const next = { ...prev, [key]: !prev[key] }
-      // Newsletter preference syncs to the server (controls briefing emails)
-      if (key === "newsletter") {
-        saveLocalProfile({ newsletterOptOut: !next.newsletter })
-        fetch("/api/profile", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newsletterOptOut: !next.newsletter }),
-        }).catch(() => {})
-      }
-      return next
-    })
+  const Toggle = ({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) => (
+    <button onClick={onClick} aria-label={label} className={cn("h-5 w-9 rounded-full relative transition-colors flex-shrink-0", on ? "bg-brand-teal" : "bg-gray-300")}>
+      <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all", on ? "right-0.5" : "left-0.5")} />
+    </button>
+  )
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
@@ -350,7 +375,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Notifications */}
+            {/* Notifications — every alert, both channels, all switchable */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -358,28 +383,81 @@ export default function SettingsPage() {
                   Notifications
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { key: "deadlines" as const, label: "Deadline reminders", desc: "Email 30/14/7/1 days before" },
-                  { key: "newsletter" as const, label: "GRC briefing emails", desc: "Real compliance news, emailed when published" },
-                  { key: "trainings" as const, label: "Training reminders", desc: "When new modules are available" },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => toggleNotif(item.key)}
-                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-brand-mist text-left"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-brand-navy">{item.label}</p>
-                      <p className="text-xs text-gray-500">{item.desc}</p>
+              <CardContent className="space-y-1">
+                {!prefsLoaded ? (
+                  <p className="text-sm text-gray-500 p-2">Loading preferences…</p>
+                ) : (
+                  USER_GROUPS.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-brand-mist"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-brand-navy">{item.label}</p>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {item.channels.map((ch) => (
+                          <span key={ch} className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-gray-400">
+                              {ch === "app" ? "In-app" : "Email"}
+                            </span>
+                            <Toggle
+                              on={prefOn(item.key, ch)}
+                              onClick={() => setToggle(item.key, ch, !prefOn(item.key, ch))}
+                              label={`${item.label} ${ch}`}
+                            />
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className={cn("h-5 w-9 rounded-full relative transition-colors", notif[item.key] ? "bg-brand-teal" : "bg-gray-300")}>
-                      <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all", notif[item.key] ? "right-0.5" : "left-0.5")} />
-                    </div>
-                  </button>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
+
+            {/* Admin alerts — only visible to admins */}
+            {isAdmin && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Admin alerts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {!prefsLoaded ? (
+                    <p className="text-sm text-gray-500 p-2">Loading preferences…</p>
+                  ) : (
+                    ADMIN_GROUPS.map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-brand-mist"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-brand-navy">{item.label}</p>
+                          <p className="text-xs text-gray-500">{item.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {item.channels.map((ch) => (
+                            <span key={ch} className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-gray-400">
+                                {ch === "app" ? "In-app" : "Email"}
+                              </span>
+                              <Toggle
+                                on={prefOn(item.key, ch)}
+                                onClick={() => setToggle(item.key, ch, !prefOn(item.key, ch))}
+                                label={`${item.label} ${ch}`}
+                              />
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Sign out */}
             <Card className="border-status-critBg">

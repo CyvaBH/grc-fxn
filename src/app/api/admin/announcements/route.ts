@@ -35,7 +35,9 @@ export async function POST(req: Request) {
       if (!process.env.BREVO_API_KEY) {
         emailError = "BREVO_API_KEY is not configured"
       } else {
-        const { rows } = await db.query(`SELECT email FROM "user"`)
+        const { subscribers } = await import("@/lib/notify")
+        const emails = await subscribers(db, "announcement")
+        const rows = emails.map((email) => ({ email }))
         const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
           <h2 style="color:#0F2A44;margin:0 0 12px;">${title.replace(/</g, "&lt;")}</h2>
           <p style="color:#334155;line-height:1.6;white-space:pre-wrap;">${text.replace(/</g, "&lt;")}</p>

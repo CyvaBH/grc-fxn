@@ -19,7 +19,20 @@ interface Announcement {
   id: string
   title: string
   body: string
+  kind: string
+  link: string
   createdAt: string
+}
+
+const KIND_LABEL: Record<string, string> = {
+  announcement: "Update",
+  ticket: "Support",
+  ticket_new: "Support",
+  service: "Service",
+  service_new: "Service",
+  training: "Training",
+  training_new: "Training",
+  briefing: "Briefing",
 }
 
 const READ_KEY = "ctn-read-ntf"
@@ -120,28 +133,51 @@ export function TopBar({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-2 sm:right-4 top-16 z-50 w-[calc(100vw-1rem)] max-w-sm bg-white rounded-xl border border-border shadow-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-border">
-              <p className="font-semibold text-brand-navy text-sm">Updates from Cyber Trust Nest</p>
-              <p className="text-xs text-gray-500">Product news, features and notices.</p>
+              <p className="font-semibold text-brand-navy text-sm">Notifications</p>
+              <p className="text-xs text-gray-500">Product news plus your ticket, service and training updates.</p>
             </div>
             <div className="max-h-80 overflow-y-auto">
               {items.length === 0 ? (
                 <p className="text-sm text-gray-500 p-4">
-                  No updates yet. New features and notices from our team will appear here.
+                  Nothing yet. Updates from our team and activity on your account will appear here.
                 </p>
               ) : (
-                items.map((n) => (
-                  <div key={n.id} className="px-4 py-3 border-b border-border last:border-0">
-                    <p className="text-sm font-medium text-brand-navy">{n.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap leading-relaxed">
-                      {n.body}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-1">
-                      {new Date(n.createdAt).toLocaleDateString("en-NG", {
-                        month: "short", day: "numeric", year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                ))
+                items.map((n) => {
+                  const inner = (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-brand-navy flex-1">{n.title}</p>
+                        {n.kind && n.kind !== "announcement" && (
+                          <span className="text-[10px] font-bold text-brand-teal bg-brand-teal/10 rounded px-1.5 py-0.5 flex-shrink-0">
+                            {KIND_LABEL[n.kind] || n.kind}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-3">
+                        {n.body}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        {new Date(n.createdAt).toLocaleDateString("en-NG", {
+                          month: "short", day: "numeric", year: "numeric",
+                        })}
+                      </p>
+                    </>
+                  )
+                  return n.link ? (
+                    <Link
+                      key={n.id}
+                      href={n.link}
+                      onClick={() => setOpen(false)}
+                      className="block px-4 py-3 border-b border-border last:border-0 hover:bg-brand-mist transition-colors"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={n.id} className="px-4 py-3 border-b border-border last:border-0">
+                      {inner}
+                    </div>
+                  )
+                })
               )}
             </div>
           </div>

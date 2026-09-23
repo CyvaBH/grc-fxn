@@ -70,6 +70,14 @@ export async function POST(req: Request) {
         details,
       ]
     )
+    try {
+      const { alertAdmins } = await import("@/lib/notify")
+      await alertAdmins(db, "service_new", {
+        title: `New service request: ${service.name}`,
+        body: `${name} (${user.email}) — ${timeline}: ${details.slice(0, 200)}`,
+        link: "/admin",
+      })
+    } catch {}
     await db.end()
     return NextResponse.json({ request: rows[0] })
   } catch (error) {

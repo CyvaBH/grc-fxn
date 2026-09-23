@@ -90,6 +90,16 @@ export const APP_TABLES = [
     "updatedAt" timestamp NOT NULL DEFAULT now()
   )`,
   // Schema evolutions for tables that may already exist
+  `ALTER TABLE "notification" ADD COLUMN IF NOT EXISTS "userId" text REFERENCES "user"("id") ON DELETE CASCADE`,
+  `ALTER TABLE "notification" ADD COLUMN IF NOT EXISTS "kind" text NOT NULL DEFAULT 'announcement'`,
+  `ALTER TABLE "notification" ADD COLUMN IF NOT EXISTS "link" text NOT NULL DEFAULT ''`,
+  `CREATE TABLE IF NOT EXISTS "notification_pref" (
+    "userId" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+    "event" text NOT NULL,
+    "channel" text NOT NULL,
+    "enabled" boolean NOT NULL DEFAULT true,
+    PRIMARY KEY ("userId", "event", "channel")
+  )`,
   `ALTER TABLE "newsletter" ADD COLUMN IF NOT EXISTS "source" text NOT NULL DEFAULT 'manual'`,
   `ALTER TABLE "organization_profile" ADD COLUMN IF NOT EXISTS "contextDetail" text NOT NULL DEFAULT ''`,
   `ALTER TABLE "ticket_message" ADD COLUMN IF NOT EXISTS "image" text`,

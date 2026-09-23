@@ -42,6 +42,20 @@ export async function PATCH(req: Request) {
       body.status,
       body.id,
     ])
+    try {
+      const { alertUser } = await import("@/lib/notify")
+      const { rows } = await db.query(
+        `SELECT "userId", email, service FROM "service_request" WHERE id = $1`,
+        [body.id]
+      )
+      if (rows[0]) {
+        await alertUser(db, rows[0].userId as string, (rows[0].email as string) || null, "service", {
+          title: `Service request ${body.status}: ${rows[0].service}`,
+          body: `Your ${rows[0].service} request moved to “${body.status}”. We'll email you with next steps.`,
+          link: "/service-request",
+        })
+      }
+    } catch {}
     await db.end()
     return NextResponse.json({ ok: true })
   } catch (error) {

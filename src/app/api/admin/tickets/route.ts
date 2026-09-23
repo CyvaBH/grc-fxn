@@ -46,6 +46,21 @@ export async function PATCH(req: Request) {
       body.status,
       body.id,
     ])
+    try {
+      const { alertUser } = await import("@/lib/notify")
+      const { rows } = await db.query(`SELECT "userId", email, subject FROM "support_ticket" WHERE id = $1`, [
+        body.id,
+      ])
+      if (rows[0]) {
+        await alertUser(db, rows[0].userId as string, (rows[0].email as string) || null, "ticket", {
+          title: `Ticket ${body.status === "closed" ? "closed" : "reopened"}: ${rows[0].subject}`,
+          body: body.status === "closed"
+            ? "Our team marked this ticket resolved. Reply anytime by opening a new ticket if the issue returns."
+            : "Our team reopened your ticket and will follow up shortly.",
+          link: "/support",
+        })
+      }
+    } catch {}
     await db.end()
     return NextResponse.json({ ok: true })
   } catch (error) {

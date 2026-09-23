@@ -58,6 +58,14 @@ export async function POST(req: Request) {
         (body.notes || "").trim().slice(0, 2000),
       ]
     )
+    try {
+      const { alertAdmins } = await import("@/lib/notify")
+      await alertAdmins(db, "training_new", {
+        title: `New training request: ${topic}`,
+        body: `${user.email} — ${kind === "trainer" ? "with our trainers" : "internal"} on ${preferredDate}.`,
+        link: "/admin",
+      })
+    } catch {}
     await db.end()
     return NextResponse.json({ request: rows[0] })
   } catch (error) {

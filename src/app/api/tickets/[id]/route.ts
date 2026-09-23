@@ -76,6 +76,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       `UPDATE "support_ticket" SET "updatedAt" = now()${admin ? "" : `, status = 'open'`} WHERE id = $1`,
       [id]
     )
+    // Alert the other side (in-app + email per their prefs)
+    try {
+      const { alertUser, alertAdmins } = await import("@/lib/notify")
+      const subject = (ticket.subject as string) || "your ticket"
+      if (admin) {
+        await alertUser(db, ticket.userId as string, (ticket.email as string) || null, "ticket", {
+          title: `Support replied: ${subject}`,
+          body: message.slice(0, 300),
+          link: "/support",
+        })
+      } else {
+        await alertAdmins(db, "ticket", {
+          title: `Reply on: ${subject}`,
+          body: `${user.email}: ${message.slice(0, 200)}`,
+          link: "/admin",
+        })
+      }
+    } catch {}
     await db.end()
     return NextResponse.json({ ok: true })
   } catch (error) {
