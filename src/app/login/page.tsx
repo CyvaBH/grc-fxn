@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [cooldown, setCooldown] = useState(0)
+  // Synchronous guard: React state updates async, so rapid double-clicks
+  // would otherwise fire two sends (second code kills the first).
+  const sendingRef = useRef(false)
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -39,6 +42,8 @@ export default function LoginPage() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (sendingRef.current) return
+    sendingRef.current = true
     setLoading(true)
     setError("")
 
@@ -60,6 +65,7 @@ export default function LoginPage() {
       setError("Something went wrong. Check your connection and try again.")
     } finally {
       setLoading(false)
+      sendingRef.current = false
     }
   }
 

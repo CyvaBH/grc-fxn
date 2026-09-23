@@ -18,7 +18,7 @@ import {
   EMPTY_CONTEXT_DETAIL,
   type ContextDetail,
 } from "@/components/context-builder"
-import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
+import { getLocalProfile, saveLocalProfile, syncProfileOwner } from "@/lib/profile-store"
 import { useSession } from "@/lib/auth-client"
 
 const industries = [
@@ -97,6 +97,7 @@ export default function OnboardingPage() {
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
+        if (res?.user?.email) syncProfileOwner(res.user.email as string)
         if (res?.profile) {
           const p = res.profile
           if (p.industry) {

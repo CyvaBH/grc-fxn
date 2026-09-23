@@ -126,8 +126,8 @@ export default function HomePage() {
               },
               {
                 icon: Lock,
-                title: "Trust Center",
-                desc: "Shareable page that proves your compliance to clients and auditors.",
+                title: "Expert services",
+                desc: "Policy drafting, training, ISO implementation and audits — request a quote.",
               },
               {
                 icon: CheckCircle2,
@@ -156,10 +156,10 @@ export default function HomePage() {
       <section className="px-4 sm:px-6 lg:px-8 py-16 bg-brand-mist">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-brand-navy mb-4">
-            Simple, transparent pricing
+            Simple, honest pricing
           </h2>
           <p className="text-gray-500 mb-12">
-            Start free. Upgrade when you&apos;re ready.
+            Start free. Pay only for expert help you actually request.
           </p>
           <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
             <div className="bg-white rounded-xl p-8 border border-border shadow-sm text-left">
@@ -168,21 +168,25 @@ export default function HomePage() {
                 ₦0
                 <span className="text-sm font-normal text-gray-500">
                   {" "}
-                  /month
+                  /forever
                 </span>
               </p>
               <ul className="mt-6 space-y-3 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  1 compliance profile
+                  Compliance profile + readiness score
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  3 deadline reminders
+                  Policy health-checks
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Monthly newsletter
+                  Deadline tracker
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                  GRC briefing
                 </li>
               </ul>
               <Link href="/signup" className="mt-8 block">
@@ -193,41 +197,37 @@ export default function HomePage() {
             </div>
             <div className="bg-white rounded-xl p-8 border-2 border-brand-teal shadow-md text-left relative">
               <div className="absolute -top-3 left-6 bg-brand-teal text-white text-xs font-bold px-3 py-1 rounded-full">
-                RECOMMENDED
+                EXPERT HELP
               </div>
-              <h3 className="text-lg font-semibold text-brand-navy">Pro</h3>
+              <h3 className="text-lg font-semibold text-brand-navy">Services</h3>
               <p className="text-3xl font-bold text-brand-navy mt-2">
-                ₦35,000
+                Custom
                 <span className="text-sm font-normal text-gray-500">
                   {" "}
-                  /month
+                  /quote
                 </span>
               </p>
               <ul className="mt-6 space-y-3 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Unlimited profiles
+                  Policy drafting & review
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Full policy library
+                  Staff training sessions
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Deadline tracker + reminders
+                  ISO 27001 implementation
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Staff training modules
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />
-                  Trust Center
+                  Internal audits & NDPA filing
                 </li>
               </ul>
-              <Link href="/signup" className="mt-8 block">
+              <Link href="/services" className="mt-8 block">
                 <Button className="w-full">
-                  Start 14-day trial
+                  Request a quote
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -257,8 +257,8 @@ export default function HomePage() {
                 a: "About 15 minutes. Answer questions about your business, and we generate your personalized compliance profile instantly.",
               },
               {
-                q: "Can I share my compliance status with clients?",
-                a: "Yes. Pro users get a Trust Center — a shareable page showing your Readiness Score, policies, and certifications.",
+                q: "Can I get human help, not just software?",
+                a: "Yes. Our services cover policy drafting, staff training, ISO 27001 implementation, internal audits and NDPA filing support — request a quote and we reply with scope and pricing.",
               },
             ].map((item) => (
               <div

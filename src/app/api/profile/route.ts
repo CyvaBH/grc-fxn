@@ -68,13 +68,21 @@ export async function GET(req: Request) {
       `SELECT * FROM "organization_profile" WHERE "userId" = $1 LIMIT 1`,
       [user.id]
     )
-    const { rows: userRows } = await db.query(`SELECT name, email, image FROM "user" WHERE id = $1`, [
-      user.id,
-    ])
-    const dbUser = userRows[0] as { name: string; email: string; image: string | null } | undefined
+    const { rows: userRows } = await db.query(
+      `SELECT name, email, image, "createdAt" FROM "user" WHERE id = $1`,
+      [user.id]
+    )
+    const dbUser = userRows[0] as
+      | { name: string; email: string; image: string | null; createdAt: string }
+      | undefined
     await db.end()
     return NextResponse.json({
-      user: { name: dbUser?.name ?? "", email: dbUser?.email ?? "", image: dbUser?.image ?? null },
+      user: {
+        name: dbUser?.name ?? "",
+        email: dbUser?.email ?? "",
+        image: dbUser?.image ?? null,
+        createdAt: dbUser?.createdAt ?? null,
+      },
       profile: rows[0] ? rowToProfile(rows[0] as Record<string, unknown>) : null,
     })
   } catch (error) {

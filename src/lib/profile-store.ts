@@ -37,6 +37,31 @@ export const EMPTY_PROFILE: OrgProfile = {
 }
 
 const KEY = "ctn-profile-v1"
+const UID_KEY = "ctn-profile-uid"
+const DEVICE_KEYS = [KEY, "ctn-deadlines-v1", "ctn-trainings-v1", "ctn-read-ntf"]
+
+/**
+ * Tie on-device caches to the signed-in account. If the account changed
+ * (deleted + re-signed-up, or a different person on the same device),
+ * wipe the stale device data and reload so they start completely clean.
+ */
+export function syncProfileOwner(email: string | null | undefined) {
+  if (typeof window === "undefined" || !email) return
+  const current = window.localStorage.getItem(UID_KEY)
+  if (!current) {
+    try {
+      window.localStorage.setItem(UID_KEY, email.toLowerCase())
+    } catch {}
+    return
+  }
+  if (current !== email.toLowerCase()) {
+    try {
+      for (const k of DEVICE_KEYS) window.localStorage.removeItem(k)
+      window.localStorage.setItem(UID_KEY, email.toLowerCase())
+    } catch {}
+    window.location.reload()
+  }
+}
 
 export function getLocalProfile(): OrgProfile {
   if (typeof window === "undefined") return EMPTY_PROFILE
@@ -135,6 +160,7 @@ export function useOrgProfile() {
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (data?.user?.email) syncProfileOwner(data.user.email as string)
         if (data?.profile) {
           setProfile((prev) => {
             const merged = { ...prev, ...data.profile }

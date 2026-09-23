@@ -33,6 +33,9 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 600,
       allowedAttempts: 5,
+      // Resends deliver the SAME unexpired code — a second send never kills
+      // the code already sitting in the inbox (the classic "double OTP" bug).
+      resendStrategy: "reuse",
       sendVerificationOnSignUp: true,
       rateLimit: {
         window: 60,

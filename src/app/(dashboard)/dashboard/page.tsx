@@ -18,6 +18,7 @@ import {
   Info,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
+import { greeting } from "@/lib/format"
 import { useOrgProfile } from "@/lib/profile-store"
 import { useReadiness } from "@/lib/use-readiness"
 import { firstFewActions, ACTIONS, type ReadinessAction } from "@/lib/readiness"
@@ -50,11 +51,11 @@ export default function DashboardPage() {
     } catch {}
   }, [])
 
-  const firstName =
-    profile.displayName.split(" ")[0] ||
-    session?.user?.name?.split(" ")[0] ||
-    "there"
   const orgName = profile.orgName || "My Organization"
+  const hello = greeting(
+    profile.displayName || session?.user?.name || "",
+    profile.orgName
+  )
 
   const actions = firstFewActions({
     industry: profile.industry,
@@ -86,7 +87,7 @@ export default function DashboardPage() {
             {/* Welcome */}
             <div>
               <h1 className="text-2xl font-bold text-brand-navy">
-                Good afternoon, {firstName}
+                {hello}
               </h1>
               <p className="text-gray-500 mt-1">
                 Here&apos;s your compliance status at a glance.

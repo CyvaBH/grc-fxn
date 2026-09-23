@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ReadinessScore } from "@/components/ui/readiness-score"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +20,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
+import { formatDate } from "@/lib/format"
 import { useOrgProfile } from "@/lib/profile-store"
 import { useReadiness } from "@/lib/use-readiness"
 import {
@@ -114,6 +115,16 @@ function dataLabel(id: string): string {
 export default function ProfilePage() {
   const { data: session } = useSession()
   const { profile } = useOrgProfile()
+  const [memberSince, setMemberSince] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.user?.createdAt) setMemberSince(d.user.createdAt as string)
+      })
+      .catch(() => {})
+  }, [])
   const { score, byDimension, evidencedIds, evidence, reload } = useReadiness()
   const [evidenceFor, setEvidenceFor] = useState<ReadinessAction | null>(null)
 
@@ -156,7 +167,8 @@ export default function ProfilePage() {
                   Compliance Profile
                 </h1>
                 <p className="text-gray-500 mt-1">
-                  {orgName} • Generated Sep 12, 2026 • Ruleset v0.1
+                  {orgName}
+                  {memberSince ? ` • Member since ${formatDate(memberSince)}` : ""} • Ruleset v0.1
                 </p>
               </div>
               <div className="flex gap-2 flex-shrink-0">

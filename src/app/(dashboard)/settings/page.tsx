@@ -20,6 +20,7 @@ import {
 } from "@/components/context-builder"
 import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2, Lock, Trash2 } from "lucide-react"
 import { authClient, useSession } from "@/lib/auth-client"
+import { userTimeZone } from "@/lib/format"
 import { fileToAvatarDataUrl, getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 import { cn } from "@/lib/utils"
 
@@ -252,6 +253,9 @@ export default function SettingsPage() {
                     <Input id="set-email" value={email} disabled placeholder="you@company.com" />
                   </div>
                 </div>
+                <p className="text-xs text-gray-400">
+                  Dates and greetings use your location timezone: {userTimeZone()} (auto-detected).
+                </p>
                 <Button size="sm" onClick={handleSave} disabled={saving}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="mr-2 h-4 w-4" /> : null}
                   {saving ? "Saving…" : saved ? "Saved!" : "Save changes"}
@@ -338,10 +342,10 @@ export default function SettingsPage() {
                       Free Plan
                     </p>
                     <p className="text-xs text-gray-500">
-                      1 profile, 3 deadlines, newsletter
+                      Profile, health-checks, deadlines, briefing
                     </p>
                   </div>
-                  <Button size="sm" onClick={() => router.push("/more")}>Upgrade to Pro</Button>
+                  <Button size="sm" onClick={() => router.push("/services")}>Request a quote</Button>
                 </div>
               </CardContent>
             </Card>
