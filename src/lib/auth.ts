@@ -16,13 +16,30 @@ export const auth = betterAuth({
     "https://cybertrustnest.vercel.app",
     "http://localhost:3000",
   ],
-  // Password login is admin-only: public sign-up is disabled, and password
-  // accounts are created solely via /api/admin/admins (admin-gated).
+  // Password is the primary login; OTP email code is the alternative.
+  // Existing OTP-only users set a password via the reset flow (Settings).
   emailAndPassword: {
     enabled: true,
-    disableSignUp: true,
+    disableSignUp: false,
     requireEmailVerification: false,
     minPasswordLength: 8,
+    sendResetPassword: async ({ user, url }) => {
+      const { sendBrevoEmail } = await import("@/lib/email")
+      await sendBrevoEmail(
+        user.email,
+        "Set your Cyber Trust Nest password",
+        `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+          <h2 style="color:#0F2A44;margin:0 0 12px;">Set your password</h2>
+          <p style="color:#334155;line-height:1.6;">Click the link below to set (or reset) your Cyber Trust Nest password. It expires in 1 hour.</p>
+          <a href="${url}" style="display:inline-block;margin-top:12px;background:#0E9F6E;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Set password</a>
+          <p style="color:#94A3B8;font-size:12px;margin-top:24px;">If you didn't ask for this, ignore it. Practical compliance guidance — confirm filings with licensed counsel or your DPCO.</p>
+        </div>`
+      )
+    },
+  },
+  logger: {
+    disabled: false,
+    level: "debug",
   },
   plugins: [
     // TOTP second factor for password admins (authenticator app + backup codes)

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ShieldCheck, ArrowRight, Mail, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { cn } from "@/lib/utils"
 
 function friendlyError(raw: string): string {
   const msg = raw || "Failed to send code. Try again."
@@ -22,17 +23,29 @@ function friendlyError(raw: string): string {
 
 const RESEND_COOLDOWN = 30
 
+async function confirmSession(): Promise<boolean> {
+  for (let i = 0; i < 10; i++) {
+    try {
+      const r = await fetch("/api/auth/get-session")
+      const j = await r.json()
+      if (j?.session || j?.user) return true
+    } catch {}
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return false
+}
+
 export default function SignupPage() {
   const router = useRouter()
+  const [mode, setMode] = useState<"password" | "otp">("password")
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
+  const [password, setPassword] = useState("")
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [cooldown, setCooldown] = useState(0)
-  // Synchronous guard: React state updates async, so rapid double-clicks
-  // would otherwise fire two sends (second code kills the first).
   const sendingRef = useRef(false)
 
   useEffect(() => {
@@ -40,6 +53,51 @@ export default function SignupPage() {
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
     return () => clearTimeout(t)
   }, [cooldown])
+
+  const enterApp = async (to: string) => {
+    try {
+      window.localStorage.setItem("ctn-last-email", email.toLowerCase())
+    } catch {}
+    try {
+      window.sessionStorage.setItem("ctn-just-authed", "1")
+    } catch {}
+    if (await confirmSession()) {
+      router.push(to)
+      router.refresh()
+    } else {
+      window.location.href = to
+    }
+  }
+
+  const handlePasswordSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (sendingRef.current) return
+    sendingRef.current = true
+    setLoading(true)
+    setError("")
+    try {
+      const { error: signUpError } = await authClient.signUp.email({
+        email,
+        password,
+        name,
+      })
+      if (signUpError) {
+        const msg = (signUpError as { message?: string }).message ?? ""
+        setError(
+          /already|exists|taken/i.test(msg)
+            ? "This email is already registered. Sign in instead — or reset your password."
+            : msg || "Could not create your account. Try again."
+        )
+        return
+      }
+      await enterApp("/onboarding")
+    } catch {
+      setError("Something went wrong. Check your connection and try again.")
+    } finally {
+      setLoading(false)
+      sendingRef.current = false
+    }
+  }
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +115,7 @@ export default function SignupPage() {
       if (otpError) {
         setError(friendlyError((otpError as { message?: string }).message ?? ""))
         setLoading(false)
+        sendingRef.current = false
         return
       }
 
@@ -93,31 +152,7 @@ export default function SignupPage() {
         return
       }
 
-      try {
-        window.localStorage.setItem("ctn-last-email", email.toLowerCase())
-      } catch {}
-      try {
-        window.sessionStorage.setItem("ctn-just-authed", "1")
-      } catch {}
-      // Confirm the session before continuing so onboarding can save the profile
-      let confirmed = false
-      for (let i = 0; i < 10; i++) {
-        try {
-          const r = await fetch("/api/auth/get-session")
-          const j = await r.json()
-          if (j?.session || j?.user) {
-            confirmed = true
-            break
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 500))
-      }
-      if (!confirmed) {
-        window.location.href = "/onboarding"
-        return
-      }
-      router.push("/onboarding")
-      router.refresh()
+      await enterApp("/onboarding")
     } catch {
       setError("Something went wrong. Try again.")
     } finally {
@@ -138,7 +173,7 @@ export default function SignupPage() {
           <h1 className="text-2xl font-bold text-brand-navy mb-2">
             Create your account
           </h1>
-          <p className="text-sm text-gray-500 mb-8">
+          <p className="text-sm text-gray-500 mb-6">
             Get your compliance profile in 15 minutes.
           </p>
 
@@ -148,8 +183,30 @@ export default function SignupPage() {
             </div>
           )}
 
-          {!otpSent ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
+          {/* Mode tabs */}
+          <div className="grid grid-cols-2 gap-1 bg-brand-mist rounded-lg p-1 mb-6">
+            {(
+              [
+                { id: "password", label: "Password" },
+                { id: "otp", label: "Email code" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => { setMode(t.id); setError(""); setOtpSent(false); setOtp("") }}
+                className={cn(
+                  "py-2 rounded-md text-sm font-medium transition-colors",
+                  mode === t.id ? "bg-white text-brand-navy shadow-sm" : "text-gray-500 hover:text-brand-navy"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === "password" ? (
+            <form onSubmit={handlePasswordSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Your name</Label>
                 <Input
@@ -165,6 +222,51 @@ export default function SignupPage() {
                 <Label htmlFor="email">Work email</Label>
                 <Input
                   id="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password (min 8 characters)</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Choose a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  "Create account"
+                )}
+                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+            </form>
+          ) : !otpSent ? (
+            <form onSubmit={handleSendOtp} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp-name">Your name</Label>
+                <Input
+                  id="otp-name"
+                  type="text"
+                  placeholder="e.g. Adaeze Obi"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="otp-email">Work email</Label>
+                <Input
+                  id="otp-email"
                   type="email"
                   placeholder="you@company.com"
                   value={email}

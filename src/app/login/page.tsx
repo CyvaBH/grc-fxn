@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ShieldCheck, ArrowRight, Mail, Loader2 } from "lucide-react"
+import { ShieldCheck, ArrowRight, Mail, Loader2, KeyRound } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { cn } from "@/lib/utils"
 
 function friendlyError(raw: string): string {
   const msg = raw || "Failed to send code. Try again."
@@ -40,16 +41,28 @@ function LoginNotice() {
   )
 }
 
+async function confirmSession(): Promise<boolean> {
+  for (let i = 0; i < 10; i++) {
+    try {
+      const r = await fetch("/api/auth/get-session")
+      const j = await r.json()
+      if (j?.session || j?.user) return true
+    } catch {}
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return false
+}
+
 export default function LoginPage() {
   const router = useRouter()
+  const [mode, setMode] = useState<"password" | "otp">("password")
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [cooldown, setCooldown] = useState(0)
-  // Synchronous guard: React state updates async, so rapid double-clicks
-  // would otherwise fire two sends (second code kills the first).
   const sendingRef = useRef(false)
 
   // Remember last email so re-login after timeout is one tap, no retyping
@@ -66,8 +79,46 @@ export default function LoginPage() {
     return () => clearTimeout(t)
   }, [cooldown])
 
-  const sendOnce = () =>
-    authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" })
+  const enterApp = async (to: string) => {
+    try {
+      window.localStorage.setItem("ctn-last-email", email.toLowerCase())
+    } catch {}
+    try {
+      window.sessionStorage.setItem("ctn-just-authed", "1")
+    } catch {}
+    if (await confirmSession()) {
+      router.push(to)
+      router.refresh()
+    } else {
+      window.location.href = to
+    }
+  }
+
+  const handlePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (sendingRef.current) return
+    sendingRef.current = true
+    setLoading(true)
+    setError("")
+    try {
+      const { error: signInError } = await authClient.signIn.email({ email, password })
+      if (signInError) {
+        const msg = (signInError as { message?: string }).message ?? ""
+        setError(
+          /invalid|password|credential/i.test(msg)
+            ? "Email or password didn't match. Try again or use an email code instead."
+            : msg || "Could not sign in. Try again."
+        )
+        return
+      }
+      await enterApp("/dashboard")
+    } catch {
+      setError("Something went wrong. Check your connection and try again.")
+    } finally {
+      setLoading(false)
+      sendingRef.current = false
+    }
+  }
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,12 +130,17 @@ export default function LoginPage() {
     try {
       let otpError: { message?: string } | null = null
       try {
-        ;({ error: otpError } = await sendOnce())
+        ;({ error: otpError } = await authClient.emailOtp.sendVerificationOtp({
+          email,
+          type: "sign-in",
+        }))
       } catch {
-        // Transient network blip: one automatic retry before bothering the user
         await new Promise((r) => setTimeout(r, 1500))
         try {
-          ;({ error: otpError } = await sendOnce())
+          ;({ error: otpError } = await authClient.emailOtp.sendVerificationOtp({
+            email,
+            type: "sign-in",
+          }))
         } catch {
           otpError = { message: "Network error. Check your connection and try again." }
         }
@@ -129,35 +185,7 @@ export default function LoginPage() {
         return
       }
 
-      try {
-        window.localStorage.setItem("ctn-last-email", email.toLowerCase())
-      } catch {}
-      // Mark this tab freshly authenticated (fresh-tab guard lets it straight in)
-      try {
-        window.sessionStorage.setItem("ctn-just-authed", "1")
-      } catch {}
-      // Confirm the session cookie actually landed before navigating —
-      // otherwise the dashboard guard bounces back to login (the double-login bug).
-      let confirmed = false
-      for (let i = 0; i < 10; i++) {
-        try {
-          const r = await fetch("/api/auth/get-session")
-          const j = await r.json()
-          if (j?.session || j?.user) {
-            confirmed = true
-            break
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 500))
-      }
-      if (!confirmed) {
-        // Fallback: full reload carries cookies reliably where SPA nav didn't
-        window.location.href = "/dashboard"
-        return
-      }
-      // Force session state to refresh so the dashboard guard sees the new session
-      router.push("/dashboard")
-      router.refresh()
+      await enterApp("/dashboard")
     } catch {
       setError("Something went wrong. Try again.")
     } finally {
@@ -189,12 +217,79 @@ export default function LoginPage() {
             </div>
           )}
 
-          {!otpSent ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
+          {/* Mode tabs */}
+          <div className="grid grid-cols-2 gap-1 bg-brand-mist rounded-lg p-1 mb-6">
+            {(
+              [
+                { id: "password", label: "Password" },
+                { id: "otp", label: "Email code" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => { setMode(t.id); setError(""); setOtpSent(false); setOtp("") }}
+                className={cn(
+                  "py-2 rounded-md text-sm font-medium transition-colors",
+                  mode === t.id ? "bg-white text-brand-navy shadow-sm" : "text-gray-500 hover:text-brand-navy"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === "password" ? (
+            <form onSubmit={handlePassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link href="/forgot-password" className="text-xs text-brand-teal hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
+                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+              <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+                <KeyRound className="h-3 w-3" />
+                Signed up with a code before?{" "}
+                <Link href="/forgot-password" className="text-brand-teal hover:underline">
+                  Set a password
+                </Link>
+              </p>
+            </form>
+          ) : !otpSent ? (
+            <form onSubmit={handleSendOtp} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp-email">Email</Label>
+                <Input
+                  id="otp-email"
                   type="email"
                   placeholder="you@company.com"
                   value={email}
