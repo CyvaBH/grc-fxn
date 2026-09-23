@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { Pool } from "pg"
+import { NEWSLETTER_SEED } from "@/lib/newsletter-seed"
 
 export async function GET() {
   const pool = new Pool({
@@ -131,6 +132,15 @@ export async function GET() {
 
     for (const query of queries) {
       await pool.query(query)
+    }
+
+    // Seed the GRC briefing library (idempotent)
+    for (const s of NEWSLETTER_SEED) {
+      await pool.query(
+        `INSERT INTO "newsletter" (id, title, summary, url, segment)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (url) DO NOTHING`,
+        [`nl_seed_${Math.random().toString(36).slice(2, 10)}`, s.title, s.summary, s.url, s.segment]
+      )
     }
 
     await pool.end()
