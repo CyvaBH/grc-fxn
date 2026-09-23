@@ -225,6 +225,19 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
       ["4. Records", `{{ORG_NAME}} keeps a register of requests and outcomes for audit.`],
     ]),
   },
+  {
+    id: "cross-border",
+    name: "Cross-Border Transfer Policy",
+    required: false,
+    blurb: "Rules for sending personal data outside Nigeria.",
+    fields: COMMON_FIELDS,
+    body: doc("Cross-Border Data Transfer Policy", [
+      ["1. When it applies", `Whenever {{ORG_NAME}} sends personal data outside Nigeria — cloud hosting abroad, foreign processors, or enterprise clients in other countries.`],
+      ["2. Safeguards", `Transfers rely on adequacy, binding contracts with the recipient, or explicit consent. Each transfer is logged: what data, to whom, where, under which safeguard.`],
+      ["3. Approval", `New cross-border transfers are approved by {{DPO_NAME}} before they start. Queries: {{CONTACT_EMAIL}}.`],
+      ["4. Review", `Transfer register reviewed annually, effective {{EFFECTIVE_DATE}}.`],
+    ]),
+  },
 ]
 
 export function fillTemplate(body: string, values: Record<string, string>): string {

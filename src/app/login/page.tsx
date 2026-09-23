@@ -195,6 +195,12 @@ export default function LoginPage() {
             Sign up free
           </Link>
         </p>
+        <p className="mt-2 text-center text-xs text-gray-400">
+          Administrator?{" "}
+          <Link href="/admin-login" className="hover:text-brand-navy hover:underline">
+            Admin sign-in
+          </Link>
+        </p>
       </div>
     </div>
   )

@@ -10,15 +10,26 @@ import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EvidenceModal } from "@/components/evidence-modal"
 import {
   FileCheck,
   ExternalLink,
   Download,
   ShieldCheck,
   Pencil,
+  CheckCircle2,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { useOrgProfile } from "@/lib/profile-store"
+import { useReadiness } from "@/lib/use-readiness"
+import {
+  ACTIONS,
+  firstFewActions,
+  type Evidence,
+  type ReadinessAction,
+} from "@/lib/readiness"
+import { DATA_TYPES } from "@/lib/data-types"
+import { cn } from "@/lib/utils"
 
 const regulations = [
   {
@@ -71,17 +82,34 @@ const frameworks = [
   },
 ]
 
+function dataLabel(id: string): string {
+  return DATA_TYPES.find((d) => d.id === id)?.label || id
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession()
   const { profile } = useOrgProfile()
+  const { score, byDimension, evidencedIds, evidence, reload } = useReadiness()
+  const [evidenceFor, setEvidenceFor] = useState<ReadinessAction | null>(null)
 
   const displayName = profile.displayName || session?.user?.name || "—"
   const email = session?.user?.email || "—"
   const orgName = profile.orgName || "My Organization"
 
+  const evidenceByAction = new Map<string, Evidence>()
+  for (const e of evidence) evidenceByAction.set(e.actionId, e)
+
   const handleExport = () => {
     window.print()
   }
+
+  const tailored = firstFewActions({
+    industry: profile.industry,
+    dataTypes: profile.dataTypes,
+    handlesPayments: profile.handlesPayments,
+    healthData: profile.healthData,
+    enterpriseClients: profile.enterpriseClients,
+  })
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
@@ -89,6 +117,7 @@ export default function ProfilePage() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           orgName={orgName}
+          readinessScore={score}
           userName={profile.displayName || session?.user?.name || ""}
           avatar={profile.avatar}
         />
@@ -128,7 +157,7 @@ export default function ProfilePage() {
                     ["Name", displayName],
                     ["Email", email],
                     ["Organization", profile.orgName || "—"],
-                    ["Industry", profile.industry || "—"],
+                    ["Industry (locked)", profile.industry || "—"],
                     ["Team size", profile.sizeBand || "—"],
                     ["Operating states", profile.states || "—"],
                   ].map(([label, value]) => (
@@ -138,10 +167,16 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
+                {profile.context && (
+                  <div className="bg-brand-mist rounded-lg p-3 mt-4 text-sm">
+                    <p className="text-xs text-gray-500 mb-0.5">Organizational context</p>
+                    <p className="text-brand-navy leading-relaxed whitespace-pre-wrap">{profile.context}</p>
+                  </div>
+                )}
                 {profile.dataTypes.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {profile.dataTypes.map((t) => (
-                      <Badge key={t} variant="secondary">{t}</Badge>
+                      <Badge key={t} variant="secondary">{dataLabel(t)}</Badge>
                     ))}
                   </div>
                 )}
@@ -164,14 +199,15 @@ export default function ProfilePage() {
             {/* Score card */}
             <Card>
               <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-6">
-                <ReadinessScore score={45} previousScore={32} />
+                <ReadinessScore score={score} previousScore={0} />
                 <div className="flex-1 text-center sm:text-left">
                   <h2 className="text-lg font-semibold text-brand-navy">
-                    Your Readiness Score
+                    Your Readiness Score: {score}/100
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    You&apos;re making progress. Complete the top 5 actions below to
-                    reach 65+.
+                    {score === 0
+                      ? "Starting at zero is honest — every point below was earned with evidence you submitted."
+                      : "Every point below was earned with evidence you submitted. Keep going."}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-3">
                     <Badge variant="applies">2 regulations apply</Badge>
@@ -179,6 +215,40 @@ export default function ProfilePage() {
                     <Badge variant="notapplies">1 does not apply</Badge>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* How the score is calculated — full assessment breakdown */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  How your score is calculated
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {byDimension.map(({ dimension, earned, total }) => {
+                  const pct = total > 0 ? Math.round((earned / total) * 100) : 0
+                  return (
+                    <div key={dimension.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-semibold text-brand-navy">
+                          {dimension.name} <span className="text-gray-400 font-normal">• {dimension.weight}% of score</span>
+                        </p>
+                        <p className="text-xs text-gray-500">{earned}/{total} pts ({pct}%)</p>
+                      </div>
+                      <div className="h-2 rounded-full bg-brand-mist overflow-hidden mb-2">
+                        <div
+                          className="h-full bg-brand-teal rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-600 leading-relaxed">{dimension.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        <strong>What counts:</strong> {dimension.measures.join(" ")}
+                      </p>
+                    </div>
+                  )
+                })}
               </CardContent>
             </Card>
 
@@ -292,7 +362,7 @@ export default function ProfilePage() {
                       Policy Templates
                     </h3>
                     <p className="text-sm text-gray-500 mb-4">
-                      15 ready-to-customize templates based on your profile.
+                      Templates tailored to your industry and context.
                     </p>
                     <Link href="/policies">
                       <Button>
@@ -305,44 +375,52 @@ export default function ProfilePage() {
               </TabsContent>
 
               <TabsContent value="plan" className="mt-4">
-                <div className="space-y-4">
+                <Card className="mb-4">
+                  <CardContent className="p-4 text-xs text-gray-600 leading-relaxed">
+                    Your plan is generated from your industry, data and context — and items
+                    only complete with evidence. Each action is worth points toward your score.
+                  </CardContent>
+                </Card>
+                <div className="space-y-3">
                   {[
-                    {
-                      horizon: "30 days",
-                      items: [
-                        "Appoint a Data Protection Officer",
-                        "Enable MFA on all admin accounts",
-                        "Draft Data Protection Policy",
-                      ],
-                    },
-                    {
-                      horizon: "60 days",
-                      items: [
-                        "Complete Data Protection Impact Assessment",
-                        "Set up access control guidelines",
-                        "Conduct initial staff training",
-                      ],
-                    },
-                    {
-                      horizon: "90 days",
-                      items: [
-                        "Register with NDPC (if threshold met)",
-                        "File first audit via DPCO",
-                        "Begin ISO 27001 SoA process",
-                      ],
-                    },
+                    { horizon: "First", items: tailored },
+                    { horizon: "Next", items: ACTIONS.filter((a) => !tailored.some((t) => t.id === a.id)).slice(0, 5) },
                   ].map((phase) => (
                     <Card key={phase.horizon}>
                       <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-brand-teal text-white text-xs flex items-center justify-center font-bold">
-                            {phase.horizon.charAt(0)}
-                          </div>
-                          Next {phase.horizon}
-                        </CardTitle>
+                        <CardTitle className="text-base">{phase.horizon} actions</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <PlanChecklist items={phase.items} />
+                      <CardContent className="space-y-2">
+                        {phase.items.map((item) => {
+                          const ev = evidenceByAction.get(item.id)
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setEvidenceFor(item)}
+                              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-brand-mist text-left transition-colors"
+                            >
+                              <div
+                                className={cn(
+                                  "h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0",
+                                  ev ? "bg-brand-teal border-brand-teal" : "border-gray-300"
+                                )}
+                              >
+                                {ev && <CheckCircle2 className="h-3 w-3 text-white" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn("text-sm font-medium", ev ? "text-gray-400 line-through" : "text-brand-navy")}>
+                                  {item.title} <span className="text-gray-400 font-normal">• +{item.points} pts</span>
+                                </p>
+                                {ev && (
+                                  <p className="text-xs text-gray-500 truncate mt-0.5">“{ev.evidence}”</p>
+                                )}
+                              </div>
+                              <Badge variant={item.effort === "Low" ? "default" : item.effort === "Med" ? "likely" : "destructive"}>
+                                {item.effort}
+                              </Badge>
+                            </button>
+                          )
+                        })}
                       </CardContent>
                     </Card>
                   ))}
@@ -353,38 +431,15 @@ export default function ProfilePage() {
         </main>
       </div>
       <MobileNav />
-    </div>
-  )
-}
 
-function PlanChecklist({ items }: { items: string[] }) {
-  const [done, setDone] = useState<string[]>([])
-  return (
-    <ul className="space-y-2">
-      {items.map((item) => {
-        const checked = done.includes(item)
-        return (
-          <li key={item}>
-            <button
-              onClick={() =>
-                setDone((prev) =>
-                  prev.includes(item) ? prev.filter((d) => d !== item) : [...prev, item]
-                )
-              }
-              className="flex items-center gap-2 text-sm text-brand-navy w-full text-left"
-            >
-              <div
-                className={
-                  checked
-                    ? "h-4 w-4 rounded border border-brand-teal bg-brand-teal flex-shrink-0"
-                    : "h-4 w-4 rounded border border-gray-300 flex-shrink-0"
-                }
-              />
-              <span className={checked ? "line-through text-gray-400" : ""}>{item}</span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+      {evidenceFor && (
+        <EvidenceModal
+          action={evidenceFor}
+          existing={evidenceByAction.get(evidenceFor.id) || null}
+          onClose={() => setEvidenceFor(null)}
+          onSaved={reload}
+        />
+      )}
+    </div>
   )
 }

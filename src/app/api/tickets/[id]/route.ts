@@ -41,9 +41,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
   const { id } = await params
 
-  const body = (await req.json().catch(() => ({}))) as { message?: string }
+  const body = (await req.json().catch(() => ({}))) as { message?: string; image?: string | null }
   const message = (body.message || "").trim().slice(0, 5000)
   if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 })
+  const image =
+    typeof body.image === "string" && body.image.startsWith("data:image/")
+      ? body.image.slice(0, 1500000)
+      : null
 
   const admin = isAdminEmail(user.email)
   const db = dbPool()
@@ -60,9 +64,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     await db.query(
-      `INSERT INTO "ticket_message" (id, "ticketId", "userId", body, "isAdmin")
-       VALUES ($1, $2, $3, $4, $5)`,
-      [newId("msg"), id, user.id, message, admin]
+      `INSERT INTO "ticket_message" (id, "ticketId", "userId", body, "isAdmin", image)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [newId("msg"), id, user.id, message, admin, image]
     )
     // User reply re-opens / flags for admin; admin reply keeps status
     await db.query(

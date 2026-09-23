@@ -22,6 +22,8 @@ export const CREATE_PROFILE_TABLE = `CREATE TABLE IF NOT EXISTS "organization_pr
   "healthData" boolean NOT NULL DEFAULT false,
   "hasWebsite" boolean NOT NULL DEFAULT false,
   "enterpriseClients" boolean NOT NULL DEFAULT false,
+  "context" text NOT NULL DEFAULT '',
+  "newsletterOptOut" boolean NOT NULL DEFAULT false,
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
 )`
@@ -48,6 +50,8 @@ function rowToProfile(row: Record<string, unknown>) {
     healthData: Boolean(row.healthData),
     hasWebsite: Boolean(row.hasWebsite),
     enterpriseClients: Boolean(row.enterpriseClients),
+    context: (row.context as string) || "",
+    newsletterOptOut: Boolean(row.newsletterOptOut),
   }
 }
 
@@ -87,6 +91,8 @@ const PROFILE_FIELDS = [
   "healthData",
   "hasWebsite",
   "enterpriseClients",
+  "context",
+  "newsletterOptOut",
 ] as const
 
 export async function PUT(req: Request) {
@@ -112,9 +118,19 @@ export async function PUT(req: Request) {
       ])
     }
 
+    // Industry locks after first save — read current row to enforce
+    const { rows: existing } = await db.query(
+      `SELECT industry FROM "organization_profile" WHERE "userId" = $1`,
+      [user.id]
+    )
+    const lockedIndustry = (existing[0]?.industry as string) || ""
+
     const patch: Record<string, unknown> = {}
     for (const f of PROFILE_FIELDS) {
-      if (body[f] !== undefined) patch[f] = body[f]
+      if (body[f] === undefined) continue
+      // Once set, industry can only change via support — ignore silent changes
+      if (f === "industry" && lockedIndustry && body[f] !== lockedIndustry) continue
+      patch[f] = body[f]
     }
     if (Array.isArray(body.dataTypes)) {
       patch.dataTypes = JSON.stringify(body.dataTypes.filter((x) => typeof x === "string"))

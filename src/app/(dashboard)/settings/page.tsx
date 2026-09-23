@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
-import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2 } from "lucide-react"
+import { StateSelector } from "@/components/state-selector"
+import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2, Lock, Trash2 } from "lucide-react"
 import { authClient, useSession } from "@/lib/auth-client"
 import { fileToAvatarDataUrl, getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 import { cn } from "@/lib/utils"
@@ -26,11 +28,16 @@ export default function SettingsPage() {
   const [orgName, setOrgName] = useState("")
   const [industry, setIndustry] = useState("")
   const [sizeBand, setSizeBand] = useState("")
+  const [states, setStates] = useState("")
+  const [context, setContext] = useState("")
   const [notif, setNotif] = useState({ deadlines: true, newsletter: true, trainings: false })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [avatarError, setAvatarError] = useState("")
+  const [deleteConfirm, setDeleteConfirm] = useState("")
+  const [deleting, setDeleting] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
 
   // Load session + server profile, fall back to local copy
   useEffect(() => {
@@ -38,8 +45,11 @@ export default function SettingsPage() {
     setOrgName(local.orgName)
     setIndustry(local.industry)
     setSizeBand(local.sizeBand)
+    setStates(local.states)
+    setContext(local.context)
     setAvatar(local.avatar)
     setName(local.displayName)
+    setNotif((n) => ({ ...n, newsletter: !local.newsletterOptOut }))
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -54,6 +64,9 @@ export default function SettingsPage() {
           setOrgName(p.orgName || "")
           setIndustry(p.industry || "")
           setSizeBand(p.sizeBand || "")
+          setStates(p.states || "")
+          setContext(p.context || "")
+          setNotif((n) => ({ ...n, newsletter: !p.newsletterOptOut }))
           if (p.displayName && !data.user?.name) setName(p.displayName)
         }
       })
@@ -80,8 +93,17 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     setSaved(false)
-    const patch = { displayName: name.trim(), orgName: orgName.trim(), industry, sizeBand, avatar }
-    saveLocalProfile(patch)
+    // Industry is locked after first save — never send a change for it
+    const patch = {
+      displayName: name.trim(),
+      orgName: orgName.trim(),
+      sizeBand,
+      states,
+      context: context.trim(),
+      newsletterOptOut: !notif.newsletter,
+      avatar,
+    }
+    saveLocalProfile({ ...patch, industry })
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
@@ -108,8 +130,43 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (deleteConfirm.trim().toLowerCase() !== email.toLowerCase() || !email) return
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmEmail: deleteConfirm.trim() }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || "Delete failed")
+      try {
+        window.localStorage.clear()
+      } catch {}
+      await authClient.signOut()
+      router.push("/")
+      router.refresh()
+    } catch {
+      setAvatarError("Could not delete your account. Contact support and we'll do it.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const toggleNotif = (key: keyof typeof notif) =>
-    setNotif((prev) => ({ ...prev, [key]: !prev[key] }))
+    setNotif((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      // Newsletter preference syncs to the server (controls briefing emails)
+      if (key === "newsletter") {
+        saveLocalProfile({ newsletterOptOut: !next.newsletter })
+        fetch("/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newsletterOptOut: !next.newsletter }),
+        }).catch(() => {})
+      }
+      return next
+    })
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
@@ -206,13 +263,23 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="set-industry">Industry</Label>
-                    <Input
-                      id="set-industry"
-                      value={industry}
-                      onChange={(e) => setIndustry(e.target.value)}
-                      placeholder="e.g. Fintech / Financial Services"
-                    />
+                    <Label htmlFor="set-industry">Industry (locked)</Label>
+                    <div className="relative">
+                      <Input
+                        id="set-industry"
+                        value={industry}
+                        disabled
+                        placeholder="Set during profiler"
+                      />
+                      <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Chosen once during setup — it drives your entire profile.{" "}
+                      <Link href="/support" className="text-brand-teal hover:underline">
+                        Contact support
+                      </Link>{" "}
+                      if it must change.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="set-size">Team size</Label>
@@ -223,6 +290,21 @@ export default function SettingsPage() {
                       placeholder="e.g. 11-50"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Operating states</Label>
+                  <StateSelector value={states} onChange={setStates} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="set-context">Organizational context</Label>
+                  <Textarea
+                    id="set-context"
+                    rows={5}
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    placeholder="What you do, who you serve, vendors, cloud, remote staff, data flows…"
+                  />
+                  <p className="text-xs text-gray-400">Editing this re-tailors your policy list.</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -246,8 +328,12 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="flex items-center justify-between p-4 bg-brand-mist rounded-lg">
                   <div>
-                    <p className="font-medium text-brand-navy text-sm">Free Plan</p>
-                    <p className="text-xs text-gray-500">1 profile, 3 deadlines, newsletter</p>
+                    <p className="font-medium text-brand-navy text-sm">
+                      Free Plan
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      1 profile, 3 deadlines, newsletter
+                    </p>
                   </div>
                   <Button size="sm" onClick={() => router.push("/more")}>Upgrade to Pro</Button>
                 </div>
@@ -265,7 +351,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-3">
                 {[
                   { key: "deadlines" as const, label: "Deadline reminders", desc: "Email 30/14/7/1 days before" },
-                  { key: "newsletter" as const, label: "Newsletter", desc: "Monthly compliance updates" },
+                  { key: "newsletter" as const, label: "GRC briefing emails", desc: "Real compliance news, emailed when published" },
                   { key: "trainings" as const, label: "Training reminders", desc: "When new modules are available" },
                 ].map((item) => (
                   <button
@@ -292,6 +378,49 @@ export default function SettingsPage() {
                   {signingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
                   {signingOut ? "Signing out…" : "Sign out"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Delete account */}
+            <Card className="border-status-critTx">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 text-status-critTx">
+                  <Trash2 className="h-4 w-4" />
+                  Danger zone
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!showDelete ? (
+                  <Button variant="outline" size="sm" onClick={() => setShowDelete(true)} className="text-status-critTx border-status-critTx/30">
+                    Delete my account…
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      This permanently deletes your account, profile, tickets, evidence and
+                      deadlines. This cannot be undone. Type your email to confirm:
+                    </p>
+                    <Input
+                      placeholder={email || "you@company.com"}
+                      value={deleteConfirm}
+                      onChange={(e) => setDeleteConfirm(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deleting || deleteConfirm.trim().toLowerCase() !== (email || "").toLowerCase() || !email}
+                        onClick={handleDelete}
+                      >
+                        {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {deleting ? "Deleting…" : "Delete everything"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setShowDelete(false); setDeleteConfirm("") }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

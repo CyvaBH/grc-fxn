@@ -19,6 +19,7 @@ import {
   fillTemplate,
   type PolicyTemplate,
 } from "@/lib/policy-templates"
+import { tailorPolicies } from "@/lib/policy-engine"
 
 export default function PoliciesPage() {
   const { data: session } = useSession()
@@ -31,7 +32,19 @@ export default function PoliciesPage() {
   // document switches to manual mode so edits are never wiped.
   const autoFill = useRef(true)
 
-  const requiredCount = POLICY_TEMPLATES.filter((p) => p.required).length
+  // Tailored to industry, location, data and organisational context
+  const tailored = tailorPolicies({
+    industry: profile.industry,
+    states: profile.states,
+    dataTypes: profile.dataTypes,
+    sizeBand: profile.sizeBand,
+    enterpriseClients: profile.enterpriseClients,
+    handlesPayments: profile.handlesPayments,
+    healthData: profile.healthData,
+    context: profile.context,
+  })
+  const byId = new Map(POLICY_TEMPLATES.map((t) => [t.id, t]))
+  const requiredCount = tailored.filter((p) => p.required).length
 
   const defaultValues = (tpl: PolicyTemplate): Record<string, string> => {
     const defaults: Record<string, string> = {
@@ -101,16 +114,24 @@ export default function PoliciesPage() {
                 Policy Templates
               </h1>
               <p className="text-gray-500 mt-1">
-                {POLICY_TEMPLATES.length} templates available • {requiredCount} required
-                for your profile
+                {tailored.length} templates • {requiredCount} required for{" "}
+                {profile.industry || "your profile"}
+                {profile.states ? ` • ${profile.states}` : ""}
               </p>
             </div>
 
             <div className="grid gap-4">
-              {POLICY_TEMPLATES.map((policy) => (
+              {tailored.map((policy) => {
+                const tpl = byId.get(policy.id)
+                if (!tpl) return null
+                return (
                 <Card
                   key={policy.id}
-                  className="hover:border-brand-teal/30 transition-colors"
+                  className={
+                    policy.required
+                      ? "border-l-4 border-l-brand-teal hover:border-brand-teal/50 transition-colors"
+                      : "hover:border-brand-teal/30 transition-colors"
+                  }
                 >
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="h-10 w-10 rounded-lg bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
@@ -130,24 +151,28 @@ export default function PoliciesPage() {
                       <p className="text-xs text-gray-500 mt-0.5">
                         {policy.blurb}
                       </p>
+                      <p className="text-xs text-brand-teal mt-1 leading-relaxed">
+                        {policy.required ? "Why you need it: " : "Why it's optional: "}{policy.reason}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"
                         aria-label={`Download ${policy.name}`}
-                        onClick={() => quickDownload(policy)}
+                        onClick={() => quickDownload(tpl)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" onClick={() => openTemplate(policy)}>
+                      <Button size="sm" onClick={() => openTemplate(tpl)}>
                         Use template
                         <ArrowRight className="ml-1 h-3 w-3" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                )
+              })}
             </div>
           </div>
         </main>

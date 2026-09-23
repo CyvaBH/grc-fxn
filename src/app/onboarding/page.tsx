@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DATA_TYPES } from "@/lib/data-types"
+import { StateSelector, statesArray } from "@/components/state-selector"
+import { getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
 
 const industries = [
   "Fintech / Financial Services",
@@ -25,18 +28,6 @@ const industries = [
   "Other",
 ]
 
-const dataTypes = [
-  "Names & phone numbers",
-  "Email addresses",
-  "BVN / NIN / government IDs",
-  "Health records",
-  "Payment / card data",
-  "Employee records",
-  "Location data",
-  "Biometric data",
-  "Children's data",
-]
-
 const sizeBands = [
   { label: "1-10", value: "1-10" },
   { label: "11-50", value: "11-50" },
@@ -50,6 +41,7 @@ interface ProfilerData {
   sizeBand: string
   states: string
   dataTypes: string[]
+  context: string
   handlesPayments: boolean
   healthData: boolean
   hasWebsite: boolean
@@ -59,68 +51,92 @@ interface ProfilerData {
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
+  const [industryLocked, setIndustryLocked] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [data, setData] = useState<ProfilerData>({
     orgName: "",
     industry: "",
     sizeBand: "",
     states: "",
     dataTypes: [],
+    context: "",
     handlesPayments: false,
     healthData: false,
     hasWebsite: false,
     enterpriseClients: false,
   })
 
-  const totalSteps = 5
+  const totalSteps = 7
   const progress = ((step + 1) / totalSteps) * 100
 
-  const toggleDataType = (type: string) => {
+  // Resume saved answers; lock industry if already set on the server
+  useEffect(() => {
+    const saved = getLocalProfile()
     setData((prev) => ({
       ...prev,
-      dataTypes: prev.dataTypes.includes(type)
-        ? prev.dataTypes.filter((t) => t !== type)
-        : [...prev.dataTypes, type],
+      orgName: saved.orgName,
+      industry: saved.industry,
+      sizeBand: saved.sizeBand,
+      states: saved.states,
+      dataTypes: saved.dataTypes,
+      context: saved.context,
+      handlesPayments: saved.handlesPayments,
+      healthData: saved.healthData,
+      hasWebsite: saved.hasWebsite,
+      enterpriseClients: saved.enterpriseClients,
+    }))
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res?.profile) {
+          const p = res.profile
+          if (p.industry) {
+            setIndustryLocked(true)
+            setData((prev) => ({ ...prev, industry: p.industry }))
+          }
+          setData((prev) => ({
+            ...prev,
+            orgName: prev.orgName || p.orgName || "",
+            sizeBand: prev.sizeBand || p.sizeBand || "",
+            states: prev.states || p.states || "",
+            dataTypes: prev.dataTypes.length > 0 ? prev.dataTypes : p.dataTypes || [],
+            context: prev.context || p.context || "",
+          }))
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const toggleDataType = (id: string) => {
+    setData((prev) => ({
+      ...prev,
+      dataTypes: prev.dataTypes.includes(id)
+        ? prev.dataTypes.filter((t) => t !== id)
+        : [...prev.dataTypes, id],
     }))
   }
 
   const canAdvance = () => {
     switch (step) {
       case 0:
-        return data.orgName.length > 0
+        return data.orgName.trim().length > 0
       case 1:
         return data.industry.length > 0
       case 2:
         return data.sizeBand.length > 0
       case 3:
-        return data.dataTypes.length > 0
+        return statesArray(data.states).length > 0
       case 4:
+        return data.dataTypes.length > 0
+      case 5:
+        return data.context.trim().length >= 30
+      case 6:
         return true
       default:
         return false
     }
   }
-
-  const [saving, setSaving] = useState(false)
-
-  // Resume where a returning user left off
-  useEffect(() => {
-    const saved = getLocalProfile()
-    if (saved.orgName || saved.industry || saved.sizeBand || saved.dataTypes.length > 0) {
-      setData((prev) => ({
-        ...prev,
-        orgName: saved.orgName,
-        industry: saved.industry,
-        sizeBand: saved.sizeBand,
-        states: saved.states,
-        dataTypes: saved.dataTypes,
-        handlesPayments: saved.handlesPayments,
-        healthData: saved.healthData,
-        hasWebsite: saved.hasWebsite,
-        enterpriseClients: saved.enterpriseClients,
-      }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const handleFinish = async () => {
     setSaving(true)
@@ -132,7 +148,7 @@ export default function OnboardingPage() {
         body: JSON.stringify(data),
       })
     } catch {
-      // Server sync failed (e.g. offline) — local copy still lets them continue
+      // Server sync failed — local copy still lets them continue
     } finally {
       router.push("/dashboard")
     }
@@ -189,7 +205,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 1: Industry */}
+          {/* Step 1: Industry (locks after first save) */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
@@ -197,27 +213,40 @@ export default function OnboardingPage() {
                   What industry are you in?
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  This determines which regulations and frameworks apply.
+                  This determines which regulations and policies apply. You choose
+                  once — it locks after your profile is generated.
                 </p>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {industries.map((industry) => (
-                  <button
-                    key={industry}
-                    onClick={() =>
-                      setData((prev) => ({ ...prev, industry }))
-                    }
-                    className={cn(
-                      "p-3 rounded-lg border text-left text-sm font-medium transition-all",
-                      data.industry === industry
-                        ? "border-brand-teal bg-brand-teal/5 text-brand-teal"
-                        : "border-border hover:border-gray-300 text-brand-navy"
-                    )}
-                  >
-                    {industry}
-                  </button>
-                ))}
-              </div>
+              {industryLocked ? (
+                <div className="p-4 bg-brand-mist rounded-lg flex items-center gap-3">
+                  <Lock className="h-5 w-5 text-brand-teal flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-brand-navy text-sm">{data.industry}</p>
+                    <p className="text-xs text-gray-500">
+                      Locked after your first profile. Contact support if it must change.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {industries.map((industry) => (
+                    <button
+                      key={industry}
+                      onClick={() =>
+                        setData((prev) => ({ ...prev, industry }))
+                      }
+                      className={cn(
+                        "p-3 rounded-lg border text-left text-sm font-medium transition-all",
+                        data.industry === industry
+                          ? "border-brand-teal bg-brand-teal/5 text-brand-teal"
+                          : "border-border hover:border-gray-300 text-brand-navy"
+                      )}
+                    >
+                      {industry}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -254,41 +283,105 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Step 3: Data Types */}
+          {/* Step 3: Operating states */}
           {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-brand-navy">
+                  Where do you operate?
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  Select every state you have staff, customers or offices in. This
+                  shapes cross-border and transfer obligations.
+                </p>
+              </div>
+              <StateSelector
+                value={data.states}
+                onChange={(states) => setData((prev) => ({ ...prev, states }))}
+              />
+              {statesArray(data.states).length > 0 && (
+                <p className="text-xs text-gray-500">
+                  Selected: {statesArray(data.states).join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Data Types with explanations */}
+          {step === 4 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-brand-navy">
                   What types of personal data do you handle?
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  Select all that apply. This is critical for NDPA compliance.
+                  Select all that apply. Each item explains why it matters for NDPA compliance.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {dataTypes.map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => toggleDataType(type)}
-                    className={cn(
-                      "px-4 py-2 rounded-full border text-sm font-medium transition-all",
-                      data.dataTypes.includes(type)
-                        ? "border-brand-teal bg-brand-teal text-white"
-                        : "border-border hover:border-gray-300 text-brand-navy"
-                    )}
-                  >
-                    {data.dataTypes.includes(type) && (
-                      <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />
-                    )}
-                    {type}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {DATA_TYPES.map((type) => {
+                  const on = data.dataTypes.includes(type.id)
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => toggleDataType(type.id)}
+                      className={cn(
+                        "w-full p-3 rounded-lg border text-left transition-all",
+                        on ? "border-brand-teal bg-brand-teal/5" : "border-border hover:border-gray-300"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-medium text-brand-navy">
+                        {on && <CheckCircle2 className="h-4 w-4 text-brand-teal flex-shrink-0" />}
+                        {type.label}
+                      </span>
+                      <span className="block text-xs text-gray-500 mt-1 leading-relaxed">
+                        {type.explain}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {/* Step 4: Quick checks */}
-          {step === 4 && (
+          {/* Step 5: Organizational context */}
+          {step === 5 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-brand-navy">
+                  Describe your organizational context
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  Like ISO 27001 Clause 4 and the NDPA require: what you do, who you
+                  serve, who you depend on (vendors, cloud, remote staff), and where
+                  data flows. At least a few sentences — this tailors your policy list.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="context">Organizational context</Label>
+                <Textarea
+                  id="context"
+                  rows={7}
+                  value={data.context}
+                  onChange={(e) => setData((prev) => ({ ...prev, context: e.target.value }))}
+                  placeholder={"Example: We are a 25-person Lagos fintech offering mobile savings wallets. Customer data lives in AWS and a Postgres database managed by our 4-person engineering team. We use Paystack for processing, 10 staff work remotely on personal laptops, and we share KYC data with two verification vendors."}
+                />
+                <p className={cn("text-xs", data.context.trim().length >= 30 ? "text-brand-teal" : "text-gray-400")}>
+                  {data.context.trim().length}/30 characters minimum
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">What you do</Badge>
+                <Badge variant="secondary">Who you serve</Badge>
+                <Badge variant="secondary">Vendors & cloud</Badge>
+                <Badge variant="secondary">Remote staff</Badge>
+                <Badge variant="secondary">Where data flows</Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Quick checks */}
+          {step === 6 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold text-brand-navy">

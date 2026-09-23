@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,9 +17,10 @@ import {
   Send,
   Loader2,
   MessageCircle,
+  ImagePlus,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
-import { useOrgProfile } from "@/lib/profile-store"
+import { useOrgProfile, fileToImageDataUrl } from "@/lib/profile-store"
 import { cn } from "@/lib/utils"
 
 const CATEGORIES = [
@@ -48,6 +49,7 @@ interface TicketMessage {
   body: string
   isAdmin: boolean
   authorName: string | null
+  image: string | null
   createdAt: string
 }
 
@@ -67,6 +69,23 @@ export default function SupportPage() {
   const [reply, setReply] = useState("")
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
+  const [attach, setAttach] = useState<string | null>(null)
+  const [replyAttach, setReplyAttach] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const replyFileRef = useRef<HTMLInputElement>(null)
+
+  const pickImage = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    set: (v: string | null) => void
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      set(await fileToImageDataUrl(file, 1024))
+    } catch {
+      setError("Could not read that image. Try a JPG or PNG.")
+    }
+  }
 
   const loadTickets = useCallback(async () => {
     try {
@@ -105,12 +124,13 @@ export default function SupportPage() {
       const res = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: subject.trim(), category, message: message.trim() }),
+        body: JSON.stringify({ subject: subject.trim(), category, message: message.trim(), image: attach }),
       })
       if (!res.ok) throw new Error((await res.json()).error || "Could not create ticket")
       const data = await res.json()
       setSubject("")
       setMessage("")
+      setAttach(null)
       setShowNew(false)
       await loadTickets()
       openTicket(data.ticket.id)
@@ -129,10 +149,11 @@ export default function SupportPage() {
       const res = await fetch(`/api/tickets/${openId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: reply.trim() }),
+        body: JSON.stringify({ message: reply.trim(), image: replyAttach }),
       })
       if (!res.ok) throw new Error("Could not send reply")
       setReply("")
+      setReplyAttach(null)
       openTicket(openId)
       loadTickets()
     } catch {}
@@ -218,6 +239,30 @@ export default function SupportPage() {
                         required
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Screenshot (optional)</Label>
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => pickImage(e, setAttach)}
+                      />
+                      {attach ? (
+                        <div className="flex items-center gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={attach} alt="Attachment" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                          <button type="button" onClick={() => setAttach(null)} className="text-xs text-gray-500 hover:text-status-critTx">
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                          <ImagePlus className="mr-2 h-4 w-4" />
+                          Attach screenshot
+                        </Button>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button type="submit" disabled={creating}>
                         {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -277,20 +322,47 @@ export default function SupportPage() {
                             })}
                           </p>
                           <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                          {m.image && (
+                            <a href={m.image} target="_blank" rel="noopener noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={m.image} alt="Attachment" className="mt-2 max-h-48 rounded-lg border border-border/30 object-cover" />
+                            </a>
+                          )}
                         </div>
                       ))
                     )}
                     {activeTicket.status === "open" ? (
-                      <form onSubmit={handleReply} className="flex gap-2 pt-2">
-                        <Input
-                          placeholder="Write a reply…"
-                          value={reply}
-                          onChange={(e) => setReply(e.target.value)}
-                        />
-                        <Button type="submit" disabled={sending || !reply.trim()}>
-                          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        </Button>
-                      </form>
+                      <div className="pt-2 space-y-2">
+                        {replyAttach && (
+                          <div className="flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={replyAttach} alt="Attachment" className="h-14 w-14 rounded-lg object-cover border border-border" />
+                            <button type="button" onClick={() => setReplyAttach(null)} className="text-xs text-gray-500 hover:text-status-critTx">
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                        <form onSubmit={handleReply} className="flex gap-2">
+                          <input
+                            ref={replyFileRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={(e) => pickImage(e, setReplyAttach)}
+                          />
+                          <Button type="button" variant="ghost" size="icon" onClick={() => replyFileRef.current?.click()} aria-label="Attach image">
+                            <ImagePlus className="h-4 w-4" />
+                          </Button>
+                          <Input
+                            placeholder="Write a reply…"
+                            value={reply}
+                            onChange={(e) => setReply(e.target.value)}
+                          />
+                          <Button type="submit" disabled={sending || !reply.trim()}>
+                            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        </form>
+                      </div>
                     ) : (
                       <p className="text-xs text-gray-500 pt-2">
                         This ticket is closed. Open a new ticket if you need more help.

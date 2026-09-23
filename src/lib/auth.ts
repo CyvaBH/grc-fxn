@@ -16,8 +16,13 @@ export const auth = betterAuth({
     "https://cybertrustnest.vercel.app",
     "http://localhost:3000",
   ],
+  // Password login is admin-only: public sign-up is disabled, and password
+  // accounts are created solely via /api/admin/admins (admin-gated).
   emailAndPassword: {
-    enabled: false,
+    enabled: true,
+    disableSignUp: true,
+    requireEmailVerification: false,
+    minPasswordLength: 8,
   },
   plugins: [
     emailOTP({

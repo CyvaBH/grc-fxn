@@ -14,6 +14,8 @@ export interface OrgProfile {
   hasWebsite: boolean
   enterpriseClients: boolean
   avatar: string | null
+  context: string
+  newsletterOptOut: boolean
 }
 
 export const EMPTY_PROFILE: OrgProfile = {
@@ -28,6 +30,8 @@ export const EMPTY_PROFILE: OrgProfile = {
   hasWebsite: false,
   enterpriseClients: false,
   avatar: null,
+  context: "",
+  newsletterOptOut: false,
 }
 
 const KEY = "ctn-profile-v1"
@@ -53,8 +57,8 @@ export function saveLocalProfile(patch: Partial<OrgProfile>): OrgProfile {
   return next
 }
 
-/** Downscale an uploaded image to a small data-URL so it fits in DB/localStorage. */
-export function fileToAvatarDataUrl(file: File, maxSize = 128): Promise<string> {
+/** Downscale any uploaded image to a data-URL (JPEG) so it fits in DB/localStorage. */
+export function fileToImageDataUrl(file: File, maxSize = 1024, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error("Could not read image"))
@@ -74,12 +78,17 @@ export function fileToAvatarDataUrl(file: File, maxSize = 128): Promise<string> 
           return
         }
         ctx.drawImage(img, 0, 0, w, h)
-        resolve(canvas.toDataURL("image/jpeg", 0.8))
+        resolve(canvas.toDataURL("image/jpeg", quality))
       }
       img.src = reader.result as string
     }
     reader.readAsDataURL(file)
   })
+}
+
+/** Avatar-sized shortcut (128px). */
+export function fileToAvatarDataUrl(file: File): Promise<string> {
+  return fileToImageDataUrl(file, 128)
 }
 
 /** Reactive profile backed by localStorage, merged with the server copy when signed in. */

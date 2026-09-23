@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ReadinessScore } from "@/components/ui/readiness-score"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,61 +9,67 @@ import { Button } from "@/components/ui/button"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
+import { EvidenceModal } from "@/components/evidence-modal"
 import {
   CalendarClock,
   FileCheck,
   ArrowRight,
   CheckCircle2,
+  Info,
 } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { useOrgProfile } from "@/lib/profile-store"
+import { useReadiness } from "@/lib/use-readiness"
+import { firstFewActions, ACTIONS, type ReadinessAction } from "@/lib/readiness"
 
-const upcomingDeadlines = [
-  {
-    title: "NDPC Audit Filing",
-    due: "2026-10-15",
-    daysLeft: 33,
-    owner: "You",
-  },
-  {
-    title: "Access Policy Review",
-    due: "2026-09-30",
-    daysLeft: 18,
-    owner: "You",
-  },
-  {
-    title: "Staff Security Training",
-    due: "2026-09-25",
-    daysLeft: 13,
-    owner: "You",
-  },
-]
+interface StoredDeadline {
+  id: number
+  title: string
+  due: string
+  owner: string
+  recurrence: string
+  done: boolean
+}
 
-const initialActions = [
-  { title: "Appoint a Data Protection Officer", effort: "High", done: false },
-  { title: "Create Incident Response Plan", effort: "Med", done: false },
-  { title: "Enable MFA on all admin accounts", effort: "Low", done: true },
-  { title: "Draft Data Protection Policy", effort: "Med", done: false },
-  { title: "Set up access control guidelines", effort: "Low", done: false },
-]
+function daysLeft(due: string): number {
+  const ms = new Date(due + "T00:00:00").getTime() - Date.now()
+  return Math.max(0, Math.ceil(ms / 86400000))
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession()
   const { profile } = useOrgProfile()
-  const [actions, setActions] = useState(initialActions)
+  const { score, evidencedIds, reload } = useReadiness()
+  const [deadlines, setDeadlines] = useState<StoredDeadline[]>([])
+  const [evidenceFor, setEvidenceFor] = useState<ReadinessAction | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("ctn-deadlines-v1")
+      if (raw) setDeadlines(JSON.parse(raw))
+    } catch {}
+  }, [])
 
   const firstName =
     profile.displayName.split(" ")[0] ||
     session?.user?.name?.split(" ")[0] ||
     "there"
   const orgName = profile.orgName || "My Organization"
-  const doneCount = actions.filter((a) => a.done).length
-  const score = Math.min(95, 30 + doneCount * 7)
 
-  const toggleAction = (title: string) =>
-    setActions((prev) =>
-      prev.map((a) => (a.title === title ? { ...a, done: !a.done } : a))
-    )
+  const actions = firstFewActions({
+    industry: profile.industry,
+    dataTypes: profile.dataTypes,
+    handlesPayments: profile.handlesPayments,
+    healthData: profile.healthData,
+    enterpriseClients: profile.enterpriseClients,
+  })
+  const doneCount = actions.filter((a) => evidencedIds.has(a.id)).length
+  const upcoming = deadlines
+    .filter((d) => !d.done)
+    .sort((a, b) => daysLeft(a.due) - daysLeft(b.due))
+    .slice(0, 3)
+
+  const actionById = (id: string) => ACTIONS.find((a) => a.id === id)
 
   return (
     <div className="min-h-screen bg-brand-mist flex">
@@ -96,8 +102,15 @@ export default function DashboardPage() {
                     Readiness Score
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex justify-center py-4">
-                  <ReadinessScore score={score} previousScore={32} />
+                <CardContent className="flex flex-col items-center py-4 gap-2">
+                  <ReadinessScore score={score} previousScore={0} />
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-1 text-xs text-brand-teal hover:underline"
+                  >
+                    <Info className="h-3 w-3" />
+                    How is this calculated?
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -115,47 +128,56 @@ export default function DashboardPage() {
                   </Link>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {upcomingDeadlines.map((deadline) => (
-                      <Link key={deadline.title} href="/deadlines">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-brand-mist hover:bg-gray-200/70 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <CalendarClock
-                              className={
-                                deadline.daysLeft <= 14
-                                  ? "h-5 w-5 text-status-warnTx"
-                                  : "h-5 w-5 text-gray-400"
-                              }
-                            />
-                            <div>
-                              <p className="text-sm font-medium text-brand-navy">
-                                {deadline.title}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Owner: {deadline.owner}
-                              </p>
+                  {upcoming.length === 0 ? (
+                    <div className="p-4 rounded-lg bg-brand-mist text-sm text-gray-500">
+                      No deadlines yet.{" "}
+                      <Link href="/deadlines" className="text-brand-teal font-medium hover:underline">
+                        Add your first deadline
+                      </Link>{" "}
+                      or generate them from your action plan.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcoming.map((deadline) => {
+                        const left = daysLeft(deadline.due)
+                        return (
+                          <Link key={deadline.id} href="/deadlines">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-brand-mist hover:bg-gray-200/70 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <CalendarClock
+                                  className={
+                                    left <= 14
+                                      ? "h-5 w-5 text-status-warnTx"
+                                      : "h-5 w-5 text-gray-400"
+                                  }
+                                />
+                                <div>
+                                  <p className="text-sm font-medium text-brand-navy">
+                                    {deadline.title}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Owner: {deadline.owner}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant={left <= 14 ? "likely" : "secondary"}>
+                                {left}d left
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge
-                            variant={
-                              deadline.daysLeft <= 14 ? "likely" : "secondary"
-                            }
-                          >
-                            {deadline.daysLeft}d left
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Top Actions */}
+            {/* First few actions — evidence-gated */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">
-                  Top 5 Actions ({doneCount}/{actions.length} done)
+                  First few actions ({doneCount}/{actions.length} evidenced)
                 </CardTitle>
                 <Link href="/profile">
                   <Button variant="ghost" size="sm" className="text-brand-teal">
@@ -165,46 +187,50 @@ export default function DashboardPage() {
                 </Link>
               </CardHeader>
               <CardContent>
+                <p className="text-xs text-gray-500 mb-3">
+                  Actions only count when you submit evidence — that&apos;s what moves your score.
+                </p>
                 <div className="space-y-2">
-                  {actions.map((action) => (
-                    <button
-                      key={action.title}
-                      onClick={() => toggleAction(action.title)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-brand-mist transition-colors text-left"
-                    >
-                      <div
-                        className={
-                          action.done
-                            ? "h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 bg-brand-teal border-brand-teal"
-                            : "h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 border-gray-300"
-                        }
+                  {actions.map((action) => {
+                    const done = evidencedIds.has(action.id)
+                    return (
+                      <button
+                        key={action.id}
+                        onClick={() => setEvidenceFor(actionById(action.id)!)}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-brand-mist transition-colors text-left"
                       >
-                        {action.done && (
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                        )}
-                      </div>
-                      <span
-                        className={
-                          action.done
-                            ? "text-sm flex-1 text-gray-400 line-through"
-                            : "text-sm flex-1 text-brand-navy font-medium"
-                        }
-                      >
-                        {action.title}
-                      </span>
-                      <Badge
-                        variant={
-                          action.effort === "Low"
-                            ? "default"
-                            : action.effort === "Med"
-                            ? "likely"
-                            : "destructive"
-                        }
-                      >
-                        {action.effort}
-                      </Badge>
-                    </button>
-                  ))}
+                        <div
+                          className={
+                            done
+                              ? "h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 bg-brand-teal border-brand-teal"
+                              : "h-5 w-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 border-gray-300"
+                          }
+                        >
+                          {done && <CheckCircle2 className="h-3 w-3 text-white" />}
+                        </div>
+                        <span
+                          className={
+                            done
+                              ? "text-sm flex-1 text-gray-400 line-through"
+                              : "text-sm flex-1 text-brand-navy font-medium"
+                          }
+                        >
+                          {action.title}
+                        </span>
+                        <Badge
+                          variant={
+                            action.effort === "Low"
+                              ? "default"
+                              : action.effort === "Med"
+                              ? "likely"
+                              : "destructive"
+                          }
+                        >
+                          {action.effort}
+                        </Badge>
+                      </button>
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -239,7 +265,7 @@ export default function DashboardPage() {
                         Policy templates
                       </p>
                       <p className="text-xs text-gray-500">
-                        15 ready-to-customize
+                        Tailored to your industry
                       </p>
                     </div>
                   </CardContent>
@@ -267,6 +293,14 @@ export default function DashboardPage() {
         </main>
       </div>
       <MobileNav />
+
+      {evidenceFor && (
+        <EvidenceModal
+          action={evidenceFor}
+          onClose={() => setEvidenceFor(null)}
+          onSaved={reload}
+        />
+      )}
     </div>
   )
 }

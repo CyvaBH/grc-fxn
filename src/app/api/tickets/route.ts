@@ -46,9 +46,14 @@ export async function POST(req: Request) {
     subject?: string
     category?: string
     message?: string
+    image?: string | null
   }
   const subject = (body.subject || "").trim().slice(0, 200)
   const message = (body.message || "").trim().slice(0, 5000)
+  const image =
+    typeof body.image === "string" && body.image.startsWith("data:image/")
+      ? body.image.slice(0, 1500000)
+      : null
   const category = TICKET_CATEGORIES.includes(body.category || "")
     ? (body.category as string)
     : "Other"
@@ -66,9 +71,9 @@ export async function POST(req: Request) {
       [ticketId, user.id, user.email, subject, category]
     )
     await db.query(
-      `INSERT INTO "ticket_message" (id, "ticketId", "userId", body, "isAdmin")
-       VALUES ($1, $2, $3, $4, false)`,
-      [newId("msg"), ticketId, user.id, message]
+      `INSERT INTO "ticket_message" (id, "ticketId", "userId", body, "isAdmin", image)
+       VALUES ($1, $2, $3, $4, false, $5)`,
+      [newId("msg"), ticketId, user.id, message, image]
     )
     const { rows } = await db.query(`SELECT * FROM "support_ticket" WHERE id = $1`, [ticketId])
     await db.end()

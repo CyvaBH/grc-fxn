@@ -72,7 +72,7 @@ export function buildOTPHtml(otp: string, type: SendOTPEmailParams["type"]): str
 }
 
 /** Brevo transactional email API — delivers to ANY inbox on the free plan. */
-async function sendViaBrevo(to: string, subject: string, html: string) {
+export async function sendBrevoEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.BREVO_API_KEY
   if (!apiKey) throw new Error("Brevo is not configured (missing BREVO_API_KEY)")
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "officialaisoafrica@gmail.com"
@@ -121,7 +121,7 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
   const errors: string[] = []
   if (process.env.BREVO_API_KEY) {
     try {
-      await sendViaBrevo(email, subject, html)
+      await sendBrevoEmail(email, subject, html)
       console.log(`[AUTH] OTP sent to ${email} via Brevo (type: ${type})`)
       return
     } catch (error) {
