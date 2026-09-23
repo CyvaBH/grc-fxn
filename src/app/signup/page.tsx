@@ -94,8 +94,28 @@ export default function SignupPage() {
       }
 
       try {
+        window.localStorage.setItem("ctn-last-email", email.toLowerCase())
+      } catch {}
+      try {
         window.sessionStorage.setItem("ctn-just-authed", "1")
       } catch {}
+      // Confirm the session before continuing so onboarding can save the profile
+      let confirmed = false
+      for (let i = 0; i < 10; i++) {
+        try {
+          const r = await fetch("/api/auth/get-session")
+          const j = await r.json()
+          if (j?.session || j?.user) {
+            confirmed = true
+            break
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      if (!confirmed) {
+        window.location.href = "/onboarding"
+        return
+      }
       router.push("/onboarding")
       router.refresh()
     } catch {

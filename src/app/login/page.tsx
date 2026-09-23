@@ -52,11 +52,22 @@ export default function LoginPage() {
   // would otherwise fire two sends (second code kills the first).
   const sendingRef = useRef(false)
 
+  // Remember last email so re-login after timeout is one tap, no retyping
+  useEffect(() => {
+    try {
+      const last = window.localStorage.getItem("ctn-last-email")
+      if (last) setEmail(last)
+    } catch {}
+  }, [])
+
   useEffect(() => {
     if (cooldown <= 0) return
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
     return () => clearTimeout(t)
   }, [cooldown])
+
+  const sendOnce = () =>
+    authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" })
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,14 +77,23 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
-        email,
-        type: "sign-in",
-      })
+      let otpError: { message?: string } | null = null
+      try {
+        ;({ error: otpError } = await sendOnce())
+      } catch {
+        // Transient network blip: one automatic retry before bothering the user
+        await new Promise((r) => setTimeout(r, 1500))
+        try {
+          ;({ error: otpError } = await sendOnce())
+        } catch {
+          otpError = { message: "Network error. Check your connection and try again." }
+        }
+      }
 
       if (otpError) {
-        setError(friendlyError((otpError as { message?: string }).message ?? ""))
+        setError(friendlyError(otpError.message ?? ""))
         setLoading(false)
+        sendingRef.current = false
         return
       }
 
@@ -109,10 +129,32 @@ export default function LoginPage() {
         return
       }
 
+      try {
+        window.localStorage.setItem("ctn-last-email", email.toLowerCase())
+      } catch {}
       // Mark this tab freshly authenticated (fresh-tab guard lets it straight in)
       try {
         window.sessionStorage.setItem("ctn-just-authed", "1")
       } catch {}
+      // Confirm the session cookie actually landed before navigating —
+      // otherwise the dashboard guard bounces back to login (the double-login bug).
+      let confirmed = false
+      for (let i = 0; i < 10; i++) {
+        try {
+          const r = await fetch("/api/auth/get-session")
+          const j = await r.json()
+          if (j?.session || j?.user) {
+            confirmed = true
+            break
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      if (!confirmed) {
+        // Fallback: full reload carries cookies reliably where SPA nav didn't
+        window.location.href = "/dashboard"
+        return
+      }
       // Force session state to refresh so the dashboard guard sees the new session
       router.push("/dashboard")
       router.refresh()

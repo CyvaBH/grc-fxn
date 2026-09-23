@@ -32,7 +32,9 @@ export const auth = betterAuth({
     emailOTP({
       otpLength: 6,
       expiresIn: 600,
-      allowedAttempts: 5,
+      // Lenient on typos: 8 tries per code within its 10-minute life.
+      // Abuse is still capped by the per-minute send rate limit.
+      allowedAttempts: 8,
       // Resends deliver the SAME unexpired code — a second send never kills
       // the code already sitting in the inbox (the classic "double OTP" bug).
       resendStrategy: "reuse",
