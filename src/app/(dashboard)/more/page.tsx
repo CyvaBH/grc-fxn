@@ -21,6 +21,7 @@ import {
   Briefcase,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { useBadges } from "@/lib/use-badges"
 
 const menuItems = [
   { href: "/trainings", label: "Staff Training", icon: GraduationCap, desc: "Phishing awareness & security basics" },
@@ -37,6 +38,18 @@ export default function MorePage() {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const { badges, adminTotal } = useBadges()
+
+  const countFor = (href: string): number =>
+    href === "/trainings"
+      ? badges.training
+      : href === "/support"
+      ? badges.tickets
+      : href === "/services"
+      ? badges.services
+      : href === "/admin"
+      ? adminTotal
+      : 0
 
   useEffect(() => {
     fetch("/api/admin/me")
@@ -64,21 +77,29 @@ export default function MorePage() {
           <div className="max-w-6xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-brand-navy">More</h1>
             <div className="space-y-3">
-              {menuItems.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <Card className="hover:border-brand-teal/30 transition-colors cursor-pointer">
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
-                        <item.icon className="h-5 w-5 text-brand-teal" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-brand-navy text-sm">{item.label}</p>
-                        <p className="text-xs text-gray-500">{item.desc}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+              {menuItems.map((item) => {
+                const count = countFor(item.href)
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Card className="hover:border-brand-teal/30 transition-colors cursor-pointer">
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-lg bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
+                          <item.icon className="h-5 w-5 text-brand-teal" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-brand-navy text-sm">{item.label}</p>
+                          <p className="text-xs text-gray-500">{item.desc}</p>
+                        </div>
+                        {count > 0 && (
+                          <span className="min-w-5 h-5 px-1 rounded-full bg-status-critTx text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                            {count > 9 ? "9+" : count}
+                          </span>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
             </div>
             {isAdmin && (
               <Link href="/admin">
@@ -87,10 +108,15 @@ export default function MorePage() {
                     <div className="h-10 w-10 rounded-lg bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
                       <Lock className="h-5 w-5 text-brand-teal" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium text-brand-navy text-sm">Admin</p>
                       <p className="text-xs text-gray-500">Users, signups & tickets</p>
                     </div>
+                    {adminTotal > 0 && (
+                      <span className="min-w-5 h-5 px-1 rounded-full bg-status-critTx text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                        {adminTotal > 9 ? "9+" : adminTotal}
+                      </span>
+                    )}
                   </CardContent>
                 </Card>
               </Link>

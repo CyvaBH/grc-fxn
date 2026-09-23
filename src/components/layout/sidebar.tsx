@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useBadges } from "@/lib/use-badges"
 import {
   LayoutDashboard,
   FileCheck,
@@ -28,9 +29,19 @@ const navItems = [
   { href: "/support", label: "Support", icon: LifeBuoy },
 ]
 
+function CountBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-status-critTx text-white text-[11px] font-bold flex items-center justify-center">
+      {count > 9 ? "9+" : count}
+    </span>
+  )
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
+  const { badges, adminTotal } = useBadges()
 
   useEffect(() => {
     fetch("/api/admin/me")
@@ -49,6 +60,14 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/")
+          const count =
+            item.href === "/support"
+              ? badges.tickets
+              : item.href === "/services"
+              ? badges.services
+              : item.href === "/trainings"
+              ? badges.training
+              : 0
           return (
             <Link
               key={item.href}
@@ -62,6 +81,7 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {item.label}
+              <CountBadge count={count} />
             </Link>
           )
         })}
@@ -79,6 +99,7 @@ export function Sidebar() {
           >
             <Lock className="h-5 w-5" />
             Admin
+            <CountBadge count={adminTotal} />
           </Link>
         )}
         <Link

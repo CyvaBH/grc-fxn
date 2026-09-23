@@ -22,6 +22,24 @@ function friendlyError(raw: string): string {
 
 const RESEND_COOLDOWN = 30
 
+function LoginNotice() {
+  const [reason, setReason] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const r = new URLSearchParams(window.location.search).get("reason")
+      if (r === "timeout" || r === "fresh") setReason(r)
+    } catch {}
+  }, [])
+  if (!reason) return null
+  return (
+    <div className="mb-4 p-3 bg-status-infoBg rounded-lg text-sm text-brand-navy">
+      {reason === "timeout"
+        ? "You were signed out after a period of inactivity. Sign in again to continue."
+        : "For your security, please sign in again to continue."}
+    </div>
+  )
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -91,6 +109,10 @@ export default function LoginPage() {
         return
       }
 
+      // Mark this tab freshly authenticated (fresh-tab guard lets it straight in)
+      try {
+        window.sessionStorage.setItem("ctn-just-authed", "1")
+      } catch {}
       // Force session state to refresh so the dashboard guard sees the new session
       router.push("/dashboard")
       router.refresh()
@@ -116,6 +138,8 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mb-6">
             Sign in to your compliance dashboard.
           </p>
+
+          <LoginNotice />
 
           {error && (
             <div className="mb-4 p-3 bg-status-critBg rounded-lg text-sm text-status-critTx">

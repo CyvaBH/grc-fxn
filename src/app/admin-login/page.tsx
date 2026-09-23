@@ -25,6 +25,9 @@ export default function AdminLoginPage() {
       setError("This account is not an admin.")
       return false
     }
+    try {
+      window.sessionStorage.setItem("ctn-just-authed", "1")
+    } catch {}
     if (me.mustChangePassword === true || me.totpEnrolled === false) {
       router.push("/admin-security")
       router.refresh()

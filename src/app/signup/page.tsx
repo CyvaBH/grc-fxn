@@ -93,6 +93,9 @@ export default function SignupPage() {
         return
       }
 
+      try {
+        window.sessionStorage.setItem("ctn-just-authed", "1")
+      } catch {}
       router.push("/onboarding")
       router.refresh()
     } catch {

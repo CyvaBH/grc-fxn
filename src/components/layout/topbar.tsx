@@ -110,7 +110,9 @@ export function TopBar({
         >
           <Bell className="h-5 w-5 text-gray-600" />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-status-critTx" />
+            <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-status-critTx text-white text-[10px] font-bold flex items-center justify-center">
+              {unread > 9 ? "9+" : unread}
+            </span>
           )}
         </Button>
         <Link
