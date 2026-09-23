@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,6 +16,8 @@ import {
   CalendarClock,
   LogOut,
   Loader2,
+  LifeBuoy,
+  Lock,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 
@@ -25,12 +27,21 @@ const menuItems = [
   { href: "/policies", label: "Policy Library", icon: FileCheck, desc: "15 ready-to-customize templates" },
   { href: "/deadlines", label: "Deadline Tracker", icon: CalendarClock, desc: "Never miss a renewal" },
   { href: "/profile", label: "Compliance Profile", icon: ShieldCheck, desc: "Your regulations & action plan" },
+  { href: "/support", label: "Support", icon: LifeBuoy, desc: "Get help from our team" },
   { href: "/settings", label: "Settings", icon: Settings, desc: "Account & billing" },
 ]
 
 export default function MorePage() {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/admin/me")
+      .then((r) => r.json())
+      .then((d) => setIsAdmin(d.isAdmin === true))
+      .catch(() => {})
+  }, [])
 
   const handleSignOut = async () => {
     setSigningOut(true)
@@ -67,6 +78,21 @@ export default function MorePage() {
                 </Link>
               ))}
             </div>
+            {isAdmin && (
+              <Link href="/admin">
+                <Card className="hover:border-brand-teal/30 transition-colors cursor-pointer">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-brand-teal/10 flex items-center justify-center flex-shrink-0">
+                      <Lock className="h-5 w-5 text-brand-teal" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-brand-navy text-sm">Admin</p>
+                      <p className="text-xs text-gray-500">Users, signups & tickets</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )}
             <button
               onClick={handleSignOut}
               disabled={signingOut}

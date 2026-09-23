@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -11,7 +12,8 @@ import {
   GraduationCap,
   Mail,
   Settings,
-  ChevronLeft,
+  LifeBuoy,
+  Lock,
 } from "lucide-react"
 
 const navItems = [
@@ -21,10 +23,19 @@ const navItems = [
   { href: "/deadlines", label: "Deadlines", icon: CalendarClock },
   { href: "/trainings", label: "Trainings", icon: GraduationCap },
   { href: "/newsletter", label: "Newsletter", icon: Mail },
+  { href: "/support", label: "Support", icon: LifeBuoy },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/admin/me")
+      .then((r) => r.json())
+      .then((d) => setIsAdmin(d.isAdmin === true))
+      .catch(() => {})
+  }, [])
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r border-border bg-white">
@@ -53,7 +64,21 @@ export function Sidebar() {
           )
         })}
       </nav>
-      <div className="px-3 py-4 border-t border-border">
+      <div className="px-3 py-4 border-t border-border space-y-1">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname === "/admin" || pathname.startsWith("/admin/")
+                ? "bg-brand-teal/10 text-brand-teal"
+                : "text-gray-600 hover:bg-brand-mist hover:text-brand-navy"
+            )}
+          >
+            <Lock className="h-5 w-5" />
+            Admin
+          </Link>
+        )}
         <Link
           href="/settings"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-brand-mist hover:text-brand-navy transition-colors"

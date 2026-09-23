@@ -1,0 +1,39 @@
+import { NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/admin"
+import { dbPool } from "@/lib/tickets-db"
+import { CREATE_PROFILE_TABLE } from "@/app/api/profile/route"
+
+// GET /api/admin/users?q=&limit= — searchable user directory
+export async function GET(req: Request) {
+  const gate = await requireAdmin(req)
+  if ("error" in gate) return gate.error
+
+  const q = new URL(req.url).searchParams.get("q")?.trim() || ""
+  const db = dbPool()
+  try {
+    await db.query(CREATE_PROFILE_TABLE)
+    const { rows } = q
+      ? await db.query(
+          `SELECT u.id, u.name, u.email, u."emailVerified", u.image IS NOT NULL AS "hasAvatar", u."createdAt",
+            (SELECT p."orgName" FROM "organization_profile" p WHERE p."userId" = u.id) AS "orgName",
+            (SELECT p.industry FROM "organization_profile" p WHERE p."userId" = u.id) AS industry,
+            (SELECT COUNT(*) FROM "support_ticket" t WHERE t."userId" = u.id) AS "ticketCount"
+           FROM "user" u
+           WHERE u.email ILIKE $1 OR u.name ILIKE $1
+           ORDER BY u."createdAt" DESC LIMIT 50`,
+          [`%${q}%`]
+        )
+      : await db.query(
+          `SELECT u.id, u.name, u.email, u."emailVerified", u.image IS NOT NULL AS "hasAvatar", u."createdAt",
+            (SELECT p."orgName" FROM "organization_profile" p WHERE p."userId" = u.id) AS "orgName",
+            (SELECT p.industry FROM "organization_profile" p WHERE p."userId" = u.id) AS industry,
+            (SELECT COUNT(*) FROM "support_ticket" t WHERE t."userId" = u.id) AS "ticketCount"
+           FROM "user" u ORDER BY u."createdAt" DESC LIMIT 50`
+        )
+    await db.end()
+    return NextResponse.json({ users: rows })
+  } catch (error) {
+    await db.end()
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+  }
+}
