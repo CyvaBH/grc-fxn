@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer"
 import { Resend } from "resend"
 
 let resend: Resend | null = null
@@ -8,23 +7,6 @@ export function getResend() {
     resend = new Resend(process.env.RESEND_API_KEY)
   }
   return resend
-}
-
-let transporter: ReturnType<typeof nodemailer.createTransport> | null = null
-
-function getGmailTransporter() {
-  const user = process.env.GMAIL_USER
-  const pass = process.env.GMAIL_APP_PASSWORD
-  if (!user || !pass) return null
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user, pass },
-    })
-  }
-  return transporter
 }
 
 interface SendOTPEmailParams {
@@ -89,15 +71,31 @@ export function buildOTPHtml(otp: string, type: SendOTPEmailParams["type"]): str
   `
 }
 
-async function sendViaGmail(to: string, subject: string, html: string) {
-  const smtp = getGmailTransporter()
-  if (!smtp) throw new Error("Gmail is not configured (missing GMAIL_USER / GMAIL_APP_PASSWORD)")
-  await smtp.sendMail({
-    from: `"Cyber Trust Nest" <${process.env.GMAIL_USER}>`,
-    to,
-    subject,
-    html,
+/** Brevo transactional email API — delivers to ANY inbox on the free plan. */
+async function sendViaBrevo(to: string, subject: string, html: string) {
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) throw new Error("Brevo is not configured (missing BREVO_API_KEY)")
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "officialaisoafrica@gmail.com"
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: "Cyber Trust Nest", email: senderEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "")
+    throw new Error(`Brevo rejected the send (HTTP ${res.status}): ${body.slice(0, 300)}`)
+  }
 }
 
 async function sendViaResend(to: string, subject: string, html: string) {
@@ -119,17 +117,17 @@ export async function sendOTPEmail({ email, otp, type }: SendOTPEmailParams) {
   const subject = `Your Cyber Trust Nest verification code`
   const html = buildOTPHtml(otp, type)
 
-  // Gmail SMTP first (delivers to ANY inbox), Resend as fallback.
+  // Brevo first (delivers to ANY inbox), Resend as fallback.
   const errors: string[] = []
-  if (getGmailTransporter()) {
+  if (process.env.BREVO_API_KEY) {
     try {
-      await sendViaGmail(email, subject, html)
-      console.log(`[AUTH] OTP sent to ${email} via Gmail (type: ${type})`)
+      await sendViaBrevo(email, subject, html)
+      console.log(`[AUTH] OTP sent to ${email} via Brevo (type: ${type})`)
       return
     } catch (error) {
       const msg = (error as Error).message
-      console.error(`[AUTH] Gmail send to ${email} failed:`, msg)
-      errors.push(`Gmail: ${msg}`)
+      console.error(`[AUTH] Brevo send to ${email} failed:`, msg)
+      errors.push(`Brevo: ${msg}`)
     }
   }
   try {

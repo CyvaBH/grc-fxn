@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { getResend } from "@/lib/email"
 
 export async function GET(req: Request) {
-  const to = new URL(req.url).searchParams.get("to") || process.env.GMAIL_USER || ""
+  const to = new URL(req.url).searchParams.get("to") || process.env.BREVO_SENDER_EMAIL || ""
   if (!to) {
     return NextResponse.json(
       { success: false, error: "Pass ?to=someone@example.com" },
@@ -15,25 +14,34 @@ export async function GET(req: Request) {
   const html =
     "<p>Congrats! <strong>Cyber Trust Nest</strong> can send email. OTP codes will use this same pipeline.</p>"
 
-  // Same order as OTP sending: Gmail first, Resend fallback
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  // Same order as OTP sending: Brevo first, Resend fallback
+  if (process.env.BREVO_API_KEY) {
     try {
-      const smtp = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "Cyber Trust Nest",
+            email: process.env.BREVO_SENDER_EMAIL || "officialaisoafrica@gmail.com",
+          },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
       })
-      await smtp.sendMail({
-        from: `"Cyber Trust Nest" <${process.env.GMAIL_USER}>`,
-        to,
-        subject,
-        html,
-      })
-      return NextResponse.json({ success: true, via: "gmail", message: `Test email sent to ${to}` })
+      if (!res.ok) {
+        const body = await res.text().catch(() => "")
+        throw new Error(`HTTP ${res.status}: ${body.slice(0, 300)}`)
+      }
+      return NextResponse.json({ success: true, via: "brevo", message: `Test email sent to ${to}` })
     } catch (error) {
       return NextResponse.json(
-        { success: false, via: "gmail", error: (error as Error).message },
+        { success: false, via: "brevo", error: (error as Error).message },
         { status: 500 }
       )
     }
