@@ -47,6 +47,21 @@ export function profileOwnerId(): string | null {
     return null
   }
 }
+
+/** False when the browser blocks site data — enforcement must fail open then. */
+export function deviceStorageOK(): boolean {
+  if (typeof window === "undefined") return true
+  try {
+    const k = "ctn-probe"
+    window.localStorage.setItem(k, "1")
+    window.localStorage.removeItem(k)
+    window.sessionStorage.setItem(k, "1")
+    window.sessionStorage.removeItem(k)
+    return true
+  } catch {
+    return false
+  }
+}
 const DEVICE_KEYS = [KEY, "ctn-deadlines-v1", "ctn-trainings-v1", "ctn-read-ntf"]
 
 /**
@@ -64,9 +79,18 @@ export function syncProfileOwner(userId: string | null | undefined) {
     return
   }
   if (current !== userId) {
+    let hadStale = false
     try {
+      hadStale = DEVICE_KEYS.some((k) => window.localStorage.getItem(k) !== null)
       for (const k of DEVICE_KEYS) window.localStorage.removeItem(k)
       window.localStorage.setItem(UID_KEY, userId)
+    } catch {}
+    if (!hadStale) return
+    // Mark this tab freshly authenticated BEFORE reloading — otherwise the
+    // fresh-tab guard sees no flag after the reload and signs the user out,
+    // trapping them in a login → wipe → reload → logout loop.
+    try {
+      window.sessionStorage.setItem("ctn-just-authed", "1")
     } catch {}
     window.location.reload()
   }

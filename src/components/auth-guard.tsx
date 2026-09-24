@@ -88,10 +88,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Fresh-tab check (runs ONCE per mount): no sibling live tabs + not just
   // authenticated → re-sign in. Delayed so restored tabs can register first;
   // skipped while hidden. The once-ref stops session refetches from
-  // re-triggering the check (which caused instant logouts).
+  // re-triggering the check (which caused instant logouts). Fails OPEN when
+  // device storage is unavailable — enforcement must never lock out
+  // legitimate users.
   useEffect(() => {
     if (isPending || !session || freshChecked.current) return
     freshChecked.current = true
+    try {
+      const k = "ctn-probe"
+      window.localStorage.setItem(k, "1")
+      window.localStorage.removeItem(k)
+      window.sessionStorage.setItem(k, "1")
+      window.sessionStorage.removeItem(k)
+    } catch {
+      return
+    }
     const justAuthed = window.sessionStorage.getItem(JUST_AUTHED) === "1"
     window.sessionStorage.removeItem(JUST_AUTHED)
     if (justAuthed) return

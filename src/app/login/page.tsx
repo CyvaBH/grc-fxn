@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ShieldCheck, ArrowRight, Mail, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { deviceStorageOK } from "@/lib/profile-store"
 
 function friendlyError(raw: string): string {
   const msg = raw || "Failed to send code. Try again."
@@ -52,8 +53,14 @@ export default function LoginPage() {
   // would otherwise fire two sends (second code kills the first).
   const sendingRef = useRef(false)
 
+  const [storageBlocked, setStorageBlocked] = useState(false)
+
   // Remember last email so re-login after timeout is one tap, no retyping
   useEffect(() => {
+    if (!deviceStorageOK()) {
+      setStorageBlocked(true)
+      return
+    }
     try {
       const last = window.localStorage.getItem("ctn-last-email")
       if (last) setEmail(last)
@@ -183,6 +190,14 @@ export default function LoginPage() {
           </p>
 
           <LoginNotice />
+
+          {storageBlocked && (
+            <div className="mb-4 p-3 bg-status-warnBg rounded-lg text-sm text-status-warnTx">
+              This browser is blocking cookies/site data for this site. Sign-in will not
+              stick until you allow them (browser Settings → Privacy → allow
+              cybertrustnest.vercel.app).
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-status-critBg rounded-lg text-sm text-status-critTx">
