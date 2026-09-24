@@ -27,7 +27,6 @@ export const EMPTY_CONTEXT_DETAIL: ContextDetail = {
 }
 
 export const ABOUT_MIN = 30
-export const NOTES_MIN = 20
 
 type ArrayKey = "dataLive" | "handlers" | "thirdParties" | "access"
 
@@ -103,8 +102,7 @@ export function contextDetailComplete(v: ContextDetail): boolean {
     v.dataLive.length > 0 &&
     v.handlers.length > 0 &&
     v.thirdParties.length > 0 &&
-    v.access.length > 0 &&
-    v.notes.trim().length >= NOTES_MIN
+    v.access.length > 0
   )
 }
 
@@ -196,7 +194,7 @@ export function ContextBuilder({
       ))}
       <div className="space-y-2">
         <Label htmlFor="ctx-notes">
-          Anything else in your own words? <span className="text-gray-400 font-normal">(required)</span>
+          Anything else in your own words? <span className="text-gray-400 font-normal">(optional)</span>
         </Label>
         <Textarea
           id="ctx-notes"
@@ -205,9 +203,6 @@ export function ContextBuilder({
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
           placeholder="E.g. We share KYC data with two verification vendors; 3 contractors have database access; planning to launch in Ghana next year."
         />
-        <p className={value.notes.trim().length >= NOTES_MIN ? "text-xs text-brand-teal" : "text-xs text-gray-400"}>
-          {value.notes.trim().length}/{NOTES_MIN} characters minimum
-        </p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">What you do</Badge>

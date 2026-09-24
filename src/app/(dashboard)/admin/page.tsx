@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { AttachmentView } from "@/components/attachment-view"
+import { PasswordInput } from "@/components/password-input"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -1091,8 +1092,7 @@ export default function AdminPage() {
                           </select>
                         </div>
                         <div className="space-y-1.5 sm:col-span-2">
-                          <Label htmlFor="adm-pw">Temporary password (min 8 chars — they must change it)</Label>
-                          <Input id="adm-pw" type="password" value={newAdminPw} onChange={(e) => setNewAdminPw(e.target.value)} required minLength={8} />
+                          <PasswordInput id="adm-pw" label="Temporary password (min 8 chars — they must change it)" value={newAdminPw} onChange={setNewAdminPw} required minLength={8} />
                         </div>
                       </div>
                       {adminResult && <p className="text-xs text-brand-navy bg-brand-mist rounded-lg p-3">{adminResult}</p>}

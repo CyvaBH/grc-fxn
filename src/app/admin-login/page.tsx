@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/password-input"
 import { ShieldCheck, ArrowRight, Loader2, Lock, Smartphone } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 
@@ -115,16 +116,13 @@ export default function AdminLoginPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">Password</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+              <PasswordInput
+                id="admin-password"
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                required
+              />
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign in as admin"}
                 {!loading && <ArrowRight className="ml-2 h-4 w-4" />}

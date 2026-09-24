@@ -52,7 +52,16 @@ export async function DELETE(req: Request) {
 
   const db = dbPool()
   try {
+    const { rows: target } = await db.query(`SELECT email FROM "user" WHERE id = $1`, [userId])
+    if (!target[0]) {
+      await db.end()
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
     const { rowCount } = await db.query(`DELETE FROM "user" WHERE id = $1`, [userId])
+    // Scrub leftover OTP verification rows keyed by email (nothing retained)
+    try {
+      await db.query(`DELETE FROM "verification" WHERE identifier LIKE $1`, [`%${target[0].email}%`])
+    } catch {}
     await db.end()
     if (!rowCount) return NextResponse.json({ error: "User not found" }, { status: 404 })
     return NextResponse.json({ ok: true })

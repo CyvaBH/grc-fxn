@@ -18,7 +18,7 @@ import {
   EMPTY_CONTEXT_DETAIL,
   type ContextDetail,
 } from "@/components/context-builder"
-import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2, Lock, Trash2, KeyRound } from "lucide-react"
+import { User, CreditCard, Bell, Shield, LogOut, Camera, Loader2, CheckCircle2, Lock, Trash2 } from "lucide-react"
 import { authClient, useSession } from "@/lib/auth-client"
 import { userTimeZone } from "@/lib/format"
 import { fileToAvatarDataUrl, getLocalProfile, saveLocalProfile } from "@/lib/profile-store"
@@ -75,21 +75,7 @@ export default function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
-  const [pwLinkSent, setPwLinkSent] = useState(false)
-  const [pwLinkBusy, setPwLinkBusy] = useState(false)
 
-  const sendPasswordLink = async () => {
-    if (!email) return
-    setPwLinkBusy(true)
-    try {
-      await authClient.$fetch("/forget-password", {
-        method: "POST",
-        body: { email, redirectTo: "/reset-password" },
-      })
-      setPwLinkSent(true)
-    } catch {}
-    setPwLinkBusy(false)
-  }
 
   // Load session + server profile, fall back to local copy
   useEffect(() => {
@@ -300,31 +286,6 @@ export default function SettingsPage() {
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="mr-2 h-4 w-4" /> : null}
                   {saving ? "Saving…" : saved ? "Saved!" : "Save changes"}
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Password */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <KeyRound className="h-4 w-4" />
-                  Password
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-gray-500">
-                  Signed up with an email code? Set a password to sign in faster next time.
-                </p>
-                {pwLinkSent ? (
-                  <p className="text-sm text-brand-teal font-medium">
-                    Link sent to {email} — check spam too. It expires in 1 hour.
-                  </p>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={sendPasswordLink} disabled={pwLinkBusy || !email}>
-                    {pwLinkBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Email me a password setup link
-                  </Button>
-                )}
               </CardContent>
             </Card>
 

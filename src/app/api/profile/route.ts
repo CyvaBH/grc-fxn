@@ -78,6 +78,7 @@ export async function GET(req: Request) {
     await db.end()
     return NextResponse.json({
       user: {
+        id: user.id,
         name: dbUser?.name ?? "",
         email: dbUser?.email ?? "",
         image: dbUser?.image ?? null,

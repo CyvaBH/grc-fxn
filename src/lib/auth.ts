@@ -16,11 +16,11 @@ export const auth = betterAuth({
     "https://cybertrustnest.vercel.app",
     "http://localhost:3000",
   ],
-  // Password is the primary login; OTP email code is the alternative.
-  // Existing OTP-only users set a password via the reset flow (Settings).
+  // Passwords exist only for admins (created via /api/admin/admins).
+  // Regular users sign up/in with OTP email codes only.
   emailAndPassword: {
     enabled: true,
-    disableSignUp: false,
+    disableSignUp: true,
     requireEmailVerification: false,
     minPasswordLength: 8,
     sendResetPassword: async ({ user, url }) => {

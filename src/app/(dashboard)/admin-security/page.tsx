@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/password-input"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TopBar } from "@/components/layout/topbar"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -146,14 +147,8 @@ export default function AdminSecurityPage() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handlePassword} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cur">Current (temporary) password</Label>
-                      <Input id="cur" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nxt">New password (min 8 characters)</Label>
-                      <Input id="nxt" type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
-                    </div>
+                    <PasswordInput id="cur" label="Current (temporary) password" value={current} onChange={setCurrent} required />
+                    <PasswordInput id="nxt" label="New password (min 8 characters)" value={next} onChange={setNext} required minLength={8} />
                     {pwError && <p className="text-xs text-status-critTx">{pwError}</p>}
                     <Button type="submit" disabled={pwBusy}>
                       {pwBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -180,10 +175,7 @@ export default function AdminSecurityPage() {
                         Confirm your {mustChange ? "new" : "current"} password to generate an
                         authenticator key for Google Authenticator, Authy or 1Password.
                       </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="enr-pw">Password</Label>
-                        <Input id="enr-pw" type="password" value={enrollPw} onChange={(e) => setEnrollPw(e.target.value)} required />
-                      </div>
+                      <PasswordInput id="enr-pw" label="Password" value={enrollPw} onChange={setEnrollPw} required />
                       {tError && <p className="text-xs text-status-critTx">{tError}</p>}
                       <Button type="submit" disabled={tBusy}>
                         {tBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

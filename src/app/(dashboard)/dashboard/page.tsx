@@ -129,7 +129,16 @@ export default function DashboardPage() {
                   </Link>
                 </CardHeader>
                 <CardContent>
-                  {upcoming.length === 0 ? (
+                  {evidencedIds.size === 0 ? (
+                    <div className="p-4 rounded-lg bg-brand-mist text-sm text-gray-500">
+                      Your deadlines will appear here once you start completing actions
+                      with evidence.{" "}
+                      <Link href="/profile" className="text-brand-teal font-medium hover:underline">
+                        View your action plan
+                      </Link>
+                      .
+                    </div>
+                  ) : upcoming.length === 0 ? (
                     <div className="p-4 rounded-lg bg-brand-mist text-sm text-gray-500">
                       No deadlines yet.{" "}
                       <Link href="/deadlines" className="text-brand-teal font-medium hover:underline">

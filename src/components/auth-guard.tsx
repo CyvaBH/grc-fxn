@@ -6,9 +6,9 @@ import { authClient, useSession } from "@/lib/auth-client"
 import { ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// Unused tab = signed out. 60s idle → 30s warning → signed out.
-const IDLE_MS = 60_000
-const WARN_MS = 30_000
+// 2 minutes idle → ask "still working or sign out" (never force).
+// Fresh tab with no live siblings (closed browser/tab, bookmark) → re-sign in.
+const IDLE_MS = 120_000
 const TABS_KEY = "ctn-live-tabs"
 const JUST_AUTHED = "ctn-just-authed"
 const HEARTBEAT_MS = 5_000
@@ -38,10 +38,22 @@ function writeTabs(tabs: Record<string, number>) {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession()
   const router = useRouter()
-  const [warnLeft, setWarnLeft] = useState<number | null>(null)
+  const [askIdle, setAskIdle] = useState(false)
   const tabId = useRef(`tab-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`)
   const lastActive = useRef(Date.now())
-  const warned = useRef(false)
+  const freshChecked = useRef(false)
+
+  const stayAwake = () => {
+    lastActive.current = Date.now()
+    setAskIdle(false)
+  }
+
+  const doSignOut = async (reason: "timeout" | "fresh") => {
+    try {
+      await authClient.signOut()
+    } catch {}
+    router.replace(`/login?reason=${reason}`)
+  }
 
   // Redirect signed-out visitors
   useEffect(() => {
@@ -73,61 +85,50 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isPending, session])
 
-  // Fresh-tab check: no sibling live tabs + not just authenticated → re-sign in.
-  // Delayed slightly so simultaneously-restored tabs can register first.
+  // Fresh-tab check (runs ONCE per mount): no sibling live tabs + not just
+  // authenticated → re-sign in. Delayed so restored tabs can register first;
+  // skipped while hidden. The once-ref stops session refetches from
+  // re-triggering the check (which caused instant logouts).
   useEffect(() => {
-    if (isPending || !session) return
+    if (isPending || !session || freshChecked.current) return
+    freshChecked.current = true
     const justAuthed = window.sessionStorage.getItem(JUST_AUTHED) === "1"
     window.sessionStorage.removeItem(JUST_AUTHED)
     if (justAuthed) return
     const timer = setTimeout(async () => {
+      if (document.visibilityState !== "visible") return
       const now = Date.now()
       const tabs = readTabs()
       const siblings = Object.entries(tabs).filter(
         ([id, ts]) => id !== tabId.current && now - ts < STALE_MS
       )
       if (siblings.length === 0) {
-        try {
-          await authClient.signOut()
-        } catch {}
-        router.replace("/login?reason=fresh")
+        await doSignOut("fresh")
       }
-    }, 1500)
+    }, 2500)
     return () => clearTimeout(timer)
-  }, [isPending, session, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPending, session])
 
-  // Idle detection → warning → auto sign-out
+  // Idle detection → ask, never force. Any activity dismisses + resets.
   useEffect(() => {
     if (isPending || !session) return
     const poke = () => {
       lastActive.current = Date.now()
-      if (warned.current) {
-        warned.current = false
-        setWarnLeft(null)
-      }
+      setAskIdle(false)
     }
     const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"]
     events.forEach((e) => window.addEventListener(e, poke, { passive: true }))
-    const t = setInterval(async () => {
-      const idle = Date.now() - lastActive.current
-      if (idle >= IDLE_MS + WARN_MS) {
-        clearInterval(t)
-        try {
-          await authClient.signOut()
-        } catch {}
-        router.replace("/login?reason=timeout")
-      } else if (idle >= IDLE_MS && !warned.current) {
-        warned.current = true
-        setWarnLeft(WARN_MS)
-      } else if (warned.current) {
-        setWarnLeft(Math.max(0, IDLE_MS + WARN_MS - idle))
+    const t = setInterval(() => {
+      if (Date.now() - lastActive.current >= IDLE_MS) {
+        setAskIdle(true)
       }
-    }, 1000)
+    }, 5000)
     return () => {
       events.forEach((e) => window.removeEventListener(e, poke))
       clearInterval(t)
     }
-  }, [isPending, session, router])
+  }, [isPending, session])
 
   if (isPending) {
     return (
@@ -145,24 +146,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {warnLeft !== null && (
+      {askIdle && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-brand-navy/60 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
             <ShieldCheck className="h-10 w-10 text-status-warnTx mx-auto mb-3" />
-            <h2 className="font-bold text-brand-navy">Still there?</h2>
+            <h2 className="font-bold text-brand-navy">Still working?</h2>
             <p className="text-sm text-gray-500 mt-1">
-              You&apos;ll be signed out in {Math.ceil(warnLeft / 1000)}s for security.
+              You&apos;ve been idle for 2 minutes. Stay signed in, or sign out now —
+              we&apos;ll never sign you out automatically.
             </p>
-            <Button
-              className="w-full mt-4"
-              onClick={() => {
-                lastActive.current = Date.now()
-                warned.current = false
-                setWarnLeft(null)
-              }}
-            >
-              Stay signed in
-            </Button>
+            <div className="flex gap-2 mt-4">
+              <Button className="flex-1" onClick={stayAwake}>
+                I&apos;m still working
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => doSignOut("timeout")}>
+                Sign out
+              </Button>
+            </div>
           </div>
         </div>
       )}

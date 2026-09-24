@@ -18,7 +18,7 @@ import {
   EMPTY_CONTEXT_DETAIL,
   type ContextDetail,
 } from "@/components/context-builder"
-import { getLocalProfile, saveLocalProfile, syncProfileOwner } from "@/lib/profile-store"
+import { getLocalProfile, saveLocalProfile, syncProfileOwner, profileOwnerId } from "@/lib/profile-store"
 import { useSession } from "@/lib/auth-client"
 
 const industries = [
@@ -78,26 +78,39 @@ export default function OnboardingPage() {
   const totalSteps = 7
   const progress = ((step + 1) / totalSteps) * 100
 
-  // Resume saved answers; lock industry if already set on the server
+  // Server-first init: a fresh account (even with a recycled email) always
+  // starts blank. Local drafts resume only if they belong to this account.
   useEffect(() => {
-    const saved = getLocalProfile()
-    setData((prev) => ({
-      ...prev,
-      orgName: saved.orgName,
-      industry: saved.industry,
-      sizeBand: saved.sizeBand,
-      states: saved.states,
-      dataTypes: saved.dataTypes,
-      context: saved.context,
-      handlesPayments: saved.handlesPayments,
-      healthData: saved.healthData,
-      hasWebsite: saved.hasWebsite,
-      enterpriseClients: saved.enterpriseClients,
-    }))
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
-        if (res?.user?.email) syncProfileOwner(res.user.email as string)
+        if (res?.user?.id) syncProfileOwner(res.user.id as string)
+        const saved = getLocalProfile()
+        const ownDraft =
+          !!res?.user?.id &&
+          profileOwnerId() === (res.user.id as string) &&
+          (saved.orgName || saved.industry || saved.dataTypes.length > 0)
+        if (ownDraft) {
+          setData((prev) => ({
+            ...prev,
+            orgName: saved.orgName,
+            industry: saved.industry,
+            sizeBand: saved.sizeBand,
+            states: saved.states,
+            dataTypes: saved.dataTypes,
+            context: saved.context,
+            handlesPayments: saved.handlesPayments,
+            healthData: saved.healthData,
+            hasWebsite: saved.hasWebsite,
+            enterpriseClients: saved.enterpriseClients,
+          }))
+          if (saved.contextDetail) {
+            try {
+              const cd = JSON.parse(saved.contextDetail) as ContextDetail
+              if (cd && Array.isArray(cd.dataLive)) setCtxDetail(cd)
+            } catch {}
+          }
+        }
         if (res?.profile) {
           const p = res.profile
           if (p.industry) {
